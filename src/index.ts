@@ -1,7 +1,8 @@
 import { Bot, Context, Logger, segment, Service, Session, Universal } from 'koishi'
+import snowflake from './snowflake'
 
 export interface Message {
-  id?: number
+  id?: string
   content: string
   messageId: string
   platform: string
@@ -41,12 +42,12 @@ enum ChannelStatus {
   FAILED,
 }
 
-export class MessageService extends Service {
+class MessageService extends Service {
   constructor(ctx: Context) {
     super(ctx, 'messages', true)
 
     this.ctx.model.extend('message', {
-      id: 'integer',
+      id: 'string',
       content: 'text',
       platform: 'string',
       guildId: 'string',
@@ -60,8 +61,6 @@ export class MessageService extends Service {
       selfId: 'string',
       lastUpdated: 'timestamp',
       deleted: 'integer',
-    }, {
-      autoInc: true,
     })
   }
 
@@ -71,7 +70,7 @@ export class MessageService extends Service {
   // platform:channelId, session.cid
   #queueRunning: boolean = true
   #messageRecord: Record<string, {
-    inDb: number
+    inDb: string
     received: string
   }> = {}
 
@@ -222,6 +221,7 @@ export class MessageService extends Service {
       message.content = elements.join('')
     }
     return {
+      id: snowflake().toString(),
       messageId: message.messageId,
       content: message.content,
       platform: bot.platform,
@@ -371,3 +371,5 @@ export class MessageService extends Service {
     }
   }
 }
+
+export default MessageService
