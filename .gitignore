@@ -3,6 +3,7 @@ bin
 dist
 temp
 
+tsconfig.temp.json
 todo.md
 yarn.lock
 node_modules/

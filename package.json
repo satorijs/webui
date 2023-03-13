@@ -1,54 +1,54 @@
 {
-  "name": "koishi-plugin-messages",
-  "description": "Message service for Koishi",
-  "version": "0.0.2",
-  "main": "lib/index.js",
-  "typings": "lib/index.d.ts",
-  "files": [
-    "lib",
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc -b"
-  },
-  "contributors": [
-    "Shigma <shigma10826@gmail.com>",
-    "LittleC <i@ltlec.cn>"
+  "name": "@root/messages",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "packages/*"
   ],
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/koishijs/koishi-plugin-messages.git"
-  },
-  "bugs": {
-    "url": "https://github.com/koishijs/koishi/issues"
-  },
-  "homepage": "https://github.com/koishijs/koishi-plugin-messages",
-  "keywords": [
-    "chatbot",
-    "koishi",
-    "plugin",
-    "message",
-    "service",
-    "database"
-  ],
-  "koishi": {
-    "description": {
-      "zh": "消息存储服务",
-      "en": "Message service for Koishi"
-    },
-    "service": {
-      "implements": [
-        "messages"
-      ]
-    }
-  },
-  "peerDependencies": {
-    "koishi": "^4.11.7"
+  "scripts": {
+    "build:types": "yakumo tsc",
+    "build:server": "yakumo esbuild",
+    "build:client": "yakumo client",
+    "build": "yarn build:server && yarn build:types && yarn build:client",
+    "bump": "yakumo version",
+    "client": "yakumo client",
+    "docs:dev": "vitepress dev docs --open",
+    "docs:build": "vitepress build docs",
+    "docs:serve": "vitepress serve docs",
+    "dep": "yakumo upgrade",
+    "pub": "yakumo publish",
+    "test": "yakumo mocha -r esbuild-register -r yml-register",
+    "test:text": "shx rm -rf coverage && c8 -r text yarn test",
+    "test:json": "shx rm -rf coverage && c8 -r json yarn test",
+    "test:html": "shx rm -rf coverage && c8 -r html yarn test"
   },
   "devDependencies": {
-    "@types/node": "^18.11.17",
-    "koishi": "^4.11.7",
-    "typescript": "^4.9.4"
+    "@koishijs/plugin-database-memory": "^2.3.1",
+    "@koishijs/plugin-mock": "^2.3.3",
+    "@koishijs/vitepress": "^1.6.5",
+    "@sinonjs/fake-timers": "^6.0.1",
+    "@types/mocha": "^9.1.1",
+    "@types/node": "^18.14.0",
+    "@types/sinonjs__fake-timers": "^6.0.4",
+    "c8": "^7.13.0",
+    "esbuild": "^0.17.10",
+    "esbuild-register": "^3.4.2",
+    "jest-mock": "^28.1.3",
+    "mocha": "^9.2.2",
+    "sass": "^1.58.3",
+    "shx": "^0.3.4",
+    "typescript": "^4.9.5",
+    "yml-register": "^1.1.0",
+    "yakumo": "^0.3.9",
+    "yakumo-esbuild": "^0.3.22",
+    "yakumo-esbuild-yaml": "^0.3.1",
+    "yakumo-mocha": "^0.3.1",
+    "yakumo-publish": "^0.3.3",
+    "yakumo-publish-sync": "^0.3.2",
+    "yakumo-tsc": "^0.3.7",
+    "yakumo-upgrade": "^0.3.2",
+    "yakumo-version": "^0.3.2",
+    "vitepress": "1.0.0-alpha.34"
   }
 }
