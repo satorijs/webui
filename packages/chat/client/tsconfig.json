@@ -1,10 +1,11 @@
 {
   "compilerOptions": {
-    "outDir": "lib",
-    "rootDir": "src",
+    "rootDir": ".",
     "target": "es2020",
-    "module": "commonjs",
+    "module": "esnext",
     "declaration": true,
+    "jsx": "preserve",
+    "noEmit": true,
     "composite": true,
     "incremental": true,
     "skipLibCheck": true,
@@ -12,7 +13,10 @@
     "moduleResolution": "node",
     "strictBindCallApply": true,
     "types": [
-      "yml-register/types",
+      "@koishijs/client/global",
     ],
   },
+  "include": [
+    ".",
+  ],
 }
