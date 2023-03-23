@@ -25,7 +25,9 @@
     "koishi",
     "plugin",
     "chat",
-    "server"
+    "server",
+    "im",
+    "webui"
   ],
   "koishi": {
     "category": "console",
@@ -47,11 +49,13 @@
   },
   "peerDependencies": {
     "@koishijs/plugin-console": "^5.5.5",
-    "koishi": "^4.12.1"
+    "koishi": "^4.12.1",
+    "koishi-plugin-messages": "^0.0.2"
   },
   "devDependencies": {
     "@koishijs/assets": "^1.0.2",
     "@koishijs/client": "^5.5.5",
-    "@koishijs/plugin-console": "^5.5.5"
+    "@koishijs/plugin-console": "^5.5.5",
+    "koishi-plugin-messages": "^0.0.2"
   }
 }
