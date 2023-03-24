@@ -40,16 +40,17 @@
 
 import { config, Dict, receive, send, ChatInput, VirtualList } from '@koishijs/client'
 import { computed, ref } from 'vue'
-import type { Message } from '../src'
-import { data } from './utils'
+import type { Message } from 'koishi-plugin-messages'
 import ChatMessage from './message.vue'
 
 const index = ref<string>()
 const current = ref<string>('')
 
-receive('chat', (body) => {
-  data.value.messages.push(body)
-  data.value.messages.splice(0, data.value.messages.length - config.maxMessages)
+const messages = ref<Message[]>([])
+
+receive('chat', (data) => {
+  messages.value.push(...data)
+  messages.value.splice(0, messages.value.length - config.maxMessages)
 })
 
 const guilds = computed(() => {
@@ -60,7 +61,7 @@ const guilds = computed(() => {
       selfId: string
     }>
   }> = {}
-  for (const message of data.value.messages) {
+  for (const message of messages.value) {
     const outerId = message.guildId || message.selfId + '$'
     const guild = guilds[message.platform + '/' + outerId] ||= {
       name: message.guildId
@@ -89,16 +90,16 @@ const header = computed(() => {
 const filtered = computed(() => {
   if (!current.value) return []
   const [platform, guildId, channelId] = current.value.split('/')
-  return data.value.messages.filter((data) => {
+  return messages.value.filter((data) => {
     if (data.platform !== platform || data.channelId !== channelId) return
     if (guildId.endsWith('$') && data.selfId + '$' !== guildId) return
     return true
   })
 })
 
-function isSuccessive({ quote, userId, channelId }: Message, index: number) {
+function isSuccessive({ quoteId, userId, channelId }: Message, index: number) {
   const prev = filtered.value[index - 1]
-  return !quote && !!prev && prev.userId === userId && prev.channelId === channelId
+  return !quoteId && !!prev && prev.userId === userId && prev.channelId === channelId
 }
 
 function handleSend(content: string) {

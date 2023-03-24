@@ -33,7 +33,7 @@ const builtinWhitelist = [
 
 export const name = 'chat'
 
-export const using = ['database', 'console'] as const
+export const using = ['messages', 'console'] as const
 
 export interface Config extends ClientExtension {}
 
@@ -57,18 +57,20 @@ export function apply(ctx: Context, options: Config = {}) {
   ctx.console.addListener('chat', async ({ content, platform, channelId, guildId, selfId }) => {
     if (ctx.assets) content = await ctx.assets.transform(content)
     ctx.bots[`${platform}:${selfId}`]?.sendMessage(channelId, content, guildId)
-  }, { authority: 3 })
+  }, { authority: 4 })
 
-  ctx.on('chat/receive', async (message) => {
-    message.content = segment.transform(message.content, {
-      image(data) {
-        if (whitelist.some(prefix => data.url.startsWith(prefix))) {
-          data.url = apiPath + '/proxy/' + encodeURIComponent(data.url)
-        }
-        return segment('image', data)
-      },
-    })
-    ctx.console.broadcast('chat', message, { authority: 3 })
+  ctx.on('message/synced', (messages) => {
+    for (const message of messages) {
+      message.content = segment.transform(message.content, {
+        image(data) {
+          if (whitelist.some(prefix => data.url.startsWith(prefix))) {
+            data.url = apiPath + '/proxy/' + encodeURIComponent(data.url)
+          }
+          return segment('image', data)
+        },
+      })
+    }
+    ctx.console.broadcast('chat', messages, { authority: 4 })
   })
 
   const { get } = ctx.http

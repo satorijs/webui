@@ -2,9 +2,12 @@ import { Context, Dict, Schema, Service, Session, Time } from 'koishi'
 import { SyncChannel } from './channel'
 import { Message } from './message'
 
+export * from './channel'
+export * from './message'
+
 declare module 'koishi' {
   interface Tables {
-    message: Message
+    'chat.message': Message
   }
 
   interface Context {
@@ -12,9 +15,7 @@ declare module 'koishi' {
   }
 
   interface Events {
-    'messages/synced'(cid: string): void
-    'messages/syncFailed'(cid: string, error: Error): void
-    'messages/syncing'(cid: string): void
+    'message/synced'(messages: Message[]): void
   }
 }
 
@@ -24,7 +25,7 @@ class MessageService extends Service {
   constructor(ctx: Context, config: MessageService.Config) {
     super(ctx, 'messages', true)
 
-    this.ctx.model.extend('message', {
+    this.ctx.model.extend('chat.message', {
       id: 'string',
       content: 'text',
       platform: 'string',
@@ -57,7 +58,7 @@ class MessageService extends Service {
     })
 
     this.ctx.on('message-deleted', async (session) => {
-      await this.ctx.database.set('message', {
+      await this.ctx.database.set('chat.message', {
         messageId: session.messageId,
         platform: session.platform,
       }, {
@@ -67,7 +68,7 @@ class MessageService extends Service {
     })
 
     this.ctx.on('message-updated', async (session) => {
-      await this.ctx.database.set('message', {
+      await this.ctx.database.set('chat.message', {
         messageId: session.messageId,
         platform: session.platform,
       }, {

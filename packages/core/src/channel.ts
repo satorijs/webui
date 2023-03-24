@@ -11,7 +11,7 @@ export enum SyncStatus {
 
 export class SyncChannel {
   public status = SyncStatus.SYNCING
-  private _buffer: Universal.Message[]
+  private _buffer: Universal.Message[] = []
   private _initTask: Promise<void>
   private _queueTask = Promise.resolve()
 
@@ -22,6 +22,7 @@ export class SyncChannel {
     this.ensure(async () => {
       if (this.status === SyncStatus.SYNCING) {
         await (this._initTask ||= this.init(session))
+        this.status = SyncStatus.SYNCED
       }
       if (this.status === SyncStatus.SYNCED) {
         return this._queueTask = this._queueTask.then(() => this.flush())
@@ -42,12 +43,13 @@ export class SyncChannel {
 
   async init(session: Session) {
     const [from] = await this.ctx.database
-      .select('message')
+      .select('chat.message')
       .where(pick(session, ['platform', 'channelId']))
       .orderBy('id', 'desc')
       .limit(1)
       .execute()
     if (!from) return
+
     // let toMessage: Universal.Message = null
     // if (!to) {
     //   logger.debug('!to')
@@ -73,21 +75,21 @@ export class SyncChannel {
         }
       }
     }
-
-    this.status = SyncStatus.SYNCED
   }
 
   async flush() {
     while (this._buffer.length) {
-      await this.ctx.database.upsert('message', this._buffer.splice(0).map((session) => {
+      const data = this._buffer.splice(0).map((session) => {
         return Message.adapt(session)
-      }))
+      })
+      await this.ctx.database.upsert('chat.message', data)
+      this.ctx.emit('message/synced', data)
     }
   }
 
   async getMessages(): Promise<Message[]> {
     return this.ctx.database
-      .select('message')
+      .select('chat.message')
       .where(pick(this, ['platform', 'channelId']))
       .orderBy('id', 'desc')
       .limit(100)
