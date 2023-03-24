@@ -1,5 +1,5 @@
-import { Context, Dict, Schema, Service, Session, Time } from 'koishi'
-import { SyncChannel } from './channel'
+import { Context, Dict, pick, Schema, Service, Session, Time } from 'koishi'
+import { ChannelData, SyncChannel } from './channel'
 import { Message } from './message'
 
 export * from './channel'
@@ -10,12 +10,18 @@ declare module 'koishi' {
     'chat.message': Message
   }
 
+  interface Channel {
+    name: string
+    avatar: string
+  }
+
   interface Context {
     messages: MessageService
   }
 
   interface Events {
-    'message/synced'(messages: Message[]): void
+    'chat/channel'(data: ChannelData, sync: SyncChannel): void
+    'chat/message'(messages: Message[], sync: SyncChannel): void
   }
 }
 
@@ -40,6 +46,12 @@ class MessageService extends Service {
       selfId: 'string',
       lastUpdated: 'timestamp',
       deleted: 'integer',
+      avatar: 'string',
+    })
+
+    this.ctx.model.extend('channel', {
+      name: 'string',
+      avatar: 'string',
     })
   }
 
@@ -101,9 +113,15 @@ class MessageService extends Service {
   }
 
   async #onMessage(session: Session) {
-    const { assignee } = await this.ctx.database.getChannel(session.platform, session.channelId, ['assignee'])
-    if (assignee !== session.selfId) return
-    this._channels[session.cid] ||= new SyncChannel(this.ctx, session.platform, session.channelId)
+    const channel = await this.ctx.database.getChannel(session.platform, session.channelId, ['assignee', 'name', 'avatar'])
+    if (channel.assignee !== session.selfId) return
+    let hasUpdate = false
+    if (session.channelName && channel.name !== session.channelName) {
+      hasUpdate = true
+      channel.name = session.channelName
+    }
+    if (hasUpdate) this.ctx.database.setChannel(session.platform, session.channelId, pick(channel, ['name', 'avatar']))
+    this._channels[session.cid] ||= new SyncChannel(this.ctx, session.platform, session.guildId, session.channelId)
     this._channels[session.cid].queue(session)
   }
 

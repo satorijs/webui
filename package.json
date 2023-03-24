@@ -18,7 +18,7 @@
     "docs:serve": "vitepress serve docs",
     "dep": "yakumo upgrade",
     "pub": "yakumo publish",
-    "lint": "eslint packages plugins --ext=ts --cache",
+    "lint": "eslint packages --ext=ts --cache",
     "test": "yakumo mocha -r esbuild-register -r yml-register",
     "test:text": "shx rm -rf coverage && c8 -r text yarn test",
     "test:json": "shx rm -rf coverage && c8 -r json yarn test",
@@ -27,7 +27,7 @@
   "devDependencies": {
     "@koishijs/eslint-config": "^1.0.0",
     "@koishijs/plugin-database-memory": "^2.3.1",
-    "@koishijs/plugin-mock": "^2.4.2",
+    "@koishijs/plugin-mock": "^2.4.3",
     "@koishijs/vitepress": "^1.6.5",
     "@sinonjs/fake-timers": "^6.0.1",
     "@types/mocha": "^9.1.1",

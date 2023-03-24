@@ -59,7 +59,12 @@ export function apply(ctx: Context, options: Config = {}) {
     ctx.bots[`${platform}:${selfId}`]?.sendMessage(channelId, content, guildId)
   }, { authority: 4 })
 
-  ctx.on('message/synced', (messages) => {
+  ctx.on('chat/channel', (data, sync) => {
+    ctx.console.broadcast('chat/channel', data, { authority: 4 })
+  })
+
+  ctx.on('chat/message', (messages, { data }) => {
+    const id = `${data.platform}/${data.guildId}/${data.channelId}`
     for (const message of messages) {
       message.content = segment.transform(message.content, {
         image(data) {
@@ -70,7 +75,7 @@ export function apply(ctx: Context, options: Config = {}) {
         },
       })
     }
-    ctx.console.broadcast('chat', messages, { authority: 4 })
+    ctx.console.broadcast('chat/message', { id, messages }, { authority: 4 })
   })
 
   const { get } = ctx.http

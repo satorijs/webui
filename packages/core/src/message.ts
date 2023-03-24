@@ -29,6 +29,7 @@ export interface Message {
   platform: string
   guildId: string
   userId: string
+  avatar?: string
   timestamp: Date
   quoteId?: string
   username: string
@@ -55,6 +56,7 @@ export namespace Message {
       guildId: message.guildId || guildId, // eg. discord
       timestamp: new Date(message.timestamp),
       userId: message.userId || message.author.userId,
+      avatar: message.author.avatar,
       username: message.author.username,
       nickname: message.author.nickname,
       channelId: message.channelId,
