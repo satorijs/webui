@@ -13,6 +13,7 @@ export interface ChannelData {
   platform: string
   guildId: string
   channelId: string
+  assignee?: string
   name?: string
   avatar?: string
   initial?: string
@@ -29,11 +30,24 @@ export class SyncChannel {
     this.data = { platform, guildId, channelId }
   }
 
+  accept(session: Session) {
+    if (!this.data.assignee) {
+      this.data.assignee = session.selfId
+    } else if (this.data.assignee !== session.selfId) {
+      return true
+    }
+
+    if (session.channelName) {
+      this.data.name = session.channelName
+    }
+  }
+
   async queue(session: Session) {
+    if (this.accept(session)) return
     this._buffer.push(session)
     this.ensure(async () => {
       if (this.status === SyncStatus.SYNCING) {
-        await (this._initTask ||= this.init(session))
+        await this.init(session)
       }
       if (this.status === SyncStatus.SYNCED) {
         return this._queueTask = this._queueTask.then(() => this.flush())
@@ -70,33 +84,37 @@ export class SyncChannel {
     }
   }
 
-  async init(session: Session) {
+  init(session?: Session) {
+    return this._initTask ||= this._init(session)
+  }
+
+  private async _init(session?: Session) {
     const [[initial], [final]] = await Promise.all([
       this.ctx.database
         .select('chat.message')
-        .where(pick(session, ['platform', 'channelId']))
+        .where(pick(this.data, ['platform', 'channelId']))
         .orderBy('id', 'asc')
         .limit(1)
         .execute(),
       this.ctx.database
         .select('chat.message')
-        .where(pick(session, ['platform', 'channelId']))
+        .where(pick(this.data, ['platform', 'channelId']))
         .orderBy('id', 'desc')
         .limit(1)
         .execute(),
     ])
-    if (final) {
+    if (final && session) {
       await this.catchUp(final, session)
     }
     this.status = SyncStatus.SYNCED
     this.data.initial = initial?.messageId
-    this.ctx.emit('chat/channel', this.data, this)
+    this.ctx.emit('chat/channel', this)
   }
 
   async flush() {
     while (this._buffer.length) {
       const data = this._buffer.splice(0).map((session) => {
-        return Message.adapt(session)
+        return Message.adapt(session, this.data.platform, this.data.guildId)
       })
       await this.ctx.database.upsert('chat.message', data)
       this.ctx.emit('chat/message', data, this)

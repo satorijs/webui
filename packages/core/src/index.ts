@@ -1,5 +1,5 @@
-import { Context, Dict, pick, Schema, Service, Session, Time } from 'koishi'
-import { ChannelData, SyncChannel } from './channel'
+import { Context, Dict, Schema, Service, Session, Time } from 'koishi'
+import { SyncChannel } from './channel'
 import { Message } from './message'
 
 export * from './channel'
@@ -10,18 +10,13 @@ declare module 'koishi' {
     'chat.message': Message
   }
 
-  interface Channel {
-    name: string
-    avatar: string
-  }
-
   interface Context {
     messages: MessageService
   }
 
   interface Events {
-    'chat/channel'(data: ChannelData, sync: SyncChannel): void
-    'chat/message'(messages: Message[], sync: SyncChannel): void
+    'chat/channel'(channel: SyncChannel): void
+    'chat/message'(messages: Message[], channel: SyncChannel): void
   }
 }
 
@@ -43,14 +38,8 @@ class MessageService extends Service {
       username: 'string',
       nickname: 'string',
       channelId: 'string',
-      selfId: 'string',
       lastUpdated: 'timestamp',
       deleted: 'integer',
-      avatar: 'string',
-    })
-
-    this.ctx.model.extend('channel', {
-      name: 'string',
       avatar: 'string',
     })
   }
@@ -113,21 +102,25 @@ class MessageService extends Service {
   }
 
   async #onMessage(session: Session) {
-    const channel = await this.ctx.database.getChannel(session.platform, session.channelId, ['assignee', 'name', 'avatar'])
-    if (channel.assignee !== session.selfId) return
-    let hasUpdate = false
-    if (session.channelName && channel.name !== session.channelName) {
-      hasUpdate = true
-      channel.name = session.channelName
-    }
-    if (hasUpdate) this.ctx.database.setChannel(session.platform, session.channelId, pick(channel, ['name', 'avatar']))
-    this._channels[session.cid] ||= new SyncChannel(this.ctx, session.platform, session.guildId, session.channelId)
-    this._channels[session.cid].queue(session)
+    const { platform, guildId, channelId } = session
+    if (session.bot.hidden) return
+    const key = platform + '/' + guildId + '/' + channelId
+    this._channels[key] ||= new SyncChannel(this.ctx, platform, guildId, channelId)
+    this._channels[key].queue(session)
   }
 
-  async getMessages(platform: string, channelId: string) {
-    const cid = platform + ':' + channelId
-    const channel = this._channels[cid]
+  async channel(platform: string, guildId: string, channelId: string) {
+    const key = platform + '/' + guildId + '/' + channelId
+    const channel = this._channels[key]
+    if (channel) return channel
+    this._channels[key] = new SyncChannel(this.ctx, platform, guildId, channelId)
+    await this._channels[key].init()
+    return this._channels[key]
+  }
+
+  async getMessages(platform: string, guildId: string, channelId: string) {
+    const key = platform + '/' + guildId + '/' + channelId
+    const channel = this._channels[key]
     if (!channel) return []
     return channel.getMessages()
   }
