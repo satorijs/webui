@@ -50,13 +50,13 @@ class MessageService extends Service {
     // 如果是一个 platform 有多个 bot, bot 状态变化, 频道状态变化待解决
     this.ctx.on('message', this.#onMessage.bind(this))
 
-    this.ctx.on('send', async (session) => {
-      const msg = await session.bot.getMessage(session.channelId, session.messageId)
-      if (msg) {
-        session.content = msg.content
-      }
-      await this.#onMessage(session)
-    })
+    // this.ctx.on('send', async (session) => {
+    //   const msg = await session.bot.getMessage(session.channelId, session.messageId)
+    //   if (msg) {
+    //     session.content = msg.content
+    //   }
+    //   await this.#onMessage(session)
+    // })
 
     this.ctx.on('message-deleted', async (session) => {
       await this.ctx.database.set('chat.message', {
@@ -117,6 +117,7 @@ class MessageService extends Service {
       await Promise.all(channels.map(async (channel) => {
         const key = bot.platform + '/' + guild.guildId + '/' + channel.channelId
         this._channels[key] ||= new SyncChannel(this.ctx, bot.platform, guild.guildId, channel.channelId)
+        this._channels[key].data.assignee = bot.selfId
         this._channels[key].data.guildName = guild.guildName
         this._channels[key].data.channelName = channel.channelName
         await this._channels[key].init()

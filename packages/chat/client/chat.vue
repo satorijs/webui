@@ -24,7 +24,7 @@
 
     <keep-alive>
       <template v-if="active" :key="active">
-        <virtual-list :data="filtered" pinned v-model:active-key="index" key-name="messageId">
+        <virtual-list :data="messages[active]" pinned v-model:active-key="index" key-name="messageId">
           <template #header><div class="header-padding"></div></template>
           <template #="data">
             <chat-message :successive="isSuccessive(data, data.index)" :data="data"></chat-message>
@@ -32,7 +32,7 @@
           <template #footer><div class="footer-padding"></div></template>
         </virtual-list>
         <div class="card-footer">
-          <chat-input @send="handleSend"></chat-input>
+          <chat-input v-model="input" @send="handleSend"></chat-input>
         </div>
       </template>
       <template v-else>
@@ -46,9 +46,9 @@
 
 <script lang="ts" setup>
 
-import { ChatInput, Dict, store, VirtualList } from '@koishijs/client'
+import { ChatInput, Dict, send, store, VirtualList } from '@koishijs/client'
 import { computed, ref, watch } from 'vue'
-import type { Message } from 'koishi-plugin-messages'
+import type { ChannelData, Message } from 'koishi-plugin-messages'
 import { messages } from './utils'
 import ChatMessage from './message.vue'
 
@@ -56,6 +56,7 @@ const index = ref<string>()
 const active = ref<string>('')
 const tree = ref(null)
 const keyword = ref('')
+const input = ref('')
 
 watch(keyword, (val) => {
   tree.value?.filter(val)
@@ -65,6 +66,7 @@ interface Tree {
   id: string
   label: string
   children?: Tree[]
+  data?: ChannelData
 }
 
 const data = computed(() => {
@@ -76,6 +78,7 @@ const data = computed(() => {
       data.push({
         id: key,
         label: store.chat[key].channelName || '未知频道',
+        data: store.chat[key],
       })
     } else {
       let guild = guilds[platform + '/' + guildId]
@@ -89,6 +92,7 @@ const data = computed(() => {
       guild.children!.push({
         id: key,
         label: store.chat[key].channelName || '未知频道',
+        data: store.chat[key],
       })
     }
   }
@@ -105,10 +109,6 @@ const header = computed(() => {
   }
 })
 
-const filtered = computed(() => {
-  return messages.value[active.value] || []
-})
-
 function filterNode(value: string, data: Tree) {
   return data.label.includes(keyword.value)
 }
@@ -116,6 +116,15 @@ function filterNode(value: string, data: Tree) {
 function handleClick(tree: Tree) {
   if (tree.children) return
   active.value = tree.id
+  const list = messages.value[tree.id] ||= []
+  if (list.length <= 100) {
+    send('chat/history', {
+      platform: tree.data!.platform,
+      guildId: tree.data!.guildId,
+      channelId: tree.data!.channelId,
+      id: list[0]?.id,
+    })
+  }
 }
 
 function getClass(tree: Tree) {
@@ -125,15 +134,14 @@ function getClass(tree: Tree) {
 }
 
 function isSuccessive({ quoteId, userId, channelId }: Message, index: number) {
-  const prev = filtered.value[index - 1]
+  const prev = (messages.value[active.value] ||= [])[index - 1]
   return !quoteId && !!prev && prev.userId === userId && prev.channelId === channelId
 }
 
 function handleSend(content: string) {
   if (!active.value) return
   const [platform, guildId, channelId] = active.value.split('/')
-  // const { selfId } = channels.value[platform + '/' + guildId].channels[channelId]
-  // send('chat', { content, platform, channelId, guildId, selfId })
+  send('chat/send', { content, platform, channelId, guildId })
 }
 
 </script>

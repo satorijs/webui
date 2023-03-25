@@ -67,15 +67,16 @@ export class SyncChannel {
     }
   }
 
-  private async catchUp(final: Message, session: Session) {
-    logger.debug('from %o to %o', final.messageId, session.messageId)
-    let front = session.messageId
+  async history(rear: string, front: string) {
+    const { channelId, platform, assignee } = this.data
+    logger.debug('from %o to %o', rear, front)
+    const bot = this.ctx.bots[`${platform}:${assignee}`]
     // eslint-disable-next-line no-labels
     label: while (true) {
-      const messages = await session.bot.getMessageList(session.channelId, front)
+      const messages = await bot.getMessageList(channelId, front)
       front = messages[0].messageId
       for (const message of messages.reverse()) {
-        if (message.messageId === final.messageId) {
+        if (message.messageId === rear) {
           // eslint-disable-next-line no-labels
           break label
         } else {
@@ -105,7 +106,7 @@ export class SyncChannel {
         .execute(),
     ])
     if (final && session) {
-      await this.catchUp(final, session)
+      await this.history(final.messageId, session.messageId)
     }
     this.status = SyncStatus.SYNCED
     this.data.initial = initial?.messageId

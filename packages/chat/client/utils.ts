@@ -4,6 +4,6 @@ import { ref } from 'vue'
 
 export const messages = ref<Dict<Message[]>>({})
 
-receive('chat/message', ({ id, messages: data }) => {
-  (messages.value[id] ||= []).push(...data)
+receive('chat/message', ({ key, messages: data, history }) => {
+  (messages.value[key] ||= [])[history ? 'unshift' : 'push'](...data)
 })
