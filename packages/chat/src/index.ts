@@ -36,7 +36,6 @@ declare module '@koishijs/plugin-console' {
 class ChatService extends DataService<Dict<ChannelData>> {
   constructor(ctx: Context, private config: ChatService.Config) {
     super(ctx, 'chat')
-    const { apiPath } = ctx.console.config
 
     ctx.console.addEntry({
       dev: resolve(__dirname, '../client/index.ts'),
@@ -62,7 +61,7 @@ class ChatService extends DataService<Dict<ChannelData>> {
         message.content = segment.transform(message.content, {
           image(data) {
             if (config.whitelist.some(prefix => data.url.startsWith(prefix))) {
-              data.url = apiPath + '/proxy/' + encodeURIComponent(data.url)
+              data.url = '/chat/proxy/' + encodeURIComponent(data.url)
             }
             return segment('image', data)
           },
@@ -72,7 +71,7 @@ class ChatService extends DataService<Dict<ChannelData>> {
     })
 
     const { get } = ctx.http
-    ctx.router.get(apiPath + '/proxy/:url', async (ctx) => {
+    ctx.router.get('/chat/proxy/:url', async (ctx) => {
       if (!config.whitelist.some(prefix => ctx.params.url.startsWith(prefix))) {
         return ctx.status = 403
       }

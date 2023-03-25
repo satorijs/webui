@@ -7,4 +7,5 @@
       "koishi-plugin-*": ["packages/*/src"],
     },
   },
+  "files": [],
 }

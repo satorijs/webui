@@ -1,29 +1,29 @@
 <template>
   <k-layout class="page-chat">
-    <template #title>
+    <template #header>
       {{ header }}
     </template>
 
     <template #left>
       <el-scrollbar>
-        <!-- <template v-for="({ name, channels }, id) in guilds" :key="id">
-          <div class="k-tab-group-title">{{ name }}</div>
-          <template v-for="({ name }, key) in channels" :key="key">
-            <k-tab-item v-model="current" :label="id + '/' + key">
-              {{ name }}
-            </k-tab-item>
-          </template>
-        </template> -->
-        <template v-for="({ name }, id) in store.chat" :key="id">
-          <k-tab-item v-model="current" :label="id">
-            {{ name || '未知频道' }}
-          </k-tab-item>
-        </template>
+        <div class="search">
+          <el-input v-model="keyword" #suffix>
+            <k-icon name="search"></k-icon>
+          </el-input>
+        </div>
+        <el-tree
+          ref="tree"
+          :data="data"
+          :props="{ class: getClass }"
+          :filter-node-method="filterNode"
+          :default-expand-all="true"
+          @node-click="handleClick"
+        ></el-tree>
       </el-scrollbar>
     </template>
 
     <keep-alive>
-      <template v-if="current" :key="current">
+      <template v-if="active" :key="active">
         <virtual-list :data="filtered" pinned v-model:active-key="index" key-name="messageId">
           <template #header><div class="header-padding"></div></template>
           <template #="data">
@@ -46,53 +46,83 @@
 
 <script lang="ts" setup>
 
-import { ChatInput, store, VirtualList } from '@koishijs/client'
-import { computed, ref } from 'vue'
+import { ChatInput, Dict, store, VirtualList } from '@koishijs/client'
+import { computed, ref, watch } from 'vue'
 import type { Message } from 'koishi-plugin-messages'
 import { messages } from './utils'
 import ChatMessage from './message.vue'
 
 const index = ref<string>()
-const current = ref<string>('')
+const active = ref<string>('')
+const tree = ref(null)
+const keyword = ref('')
 
-// const guilds = computed(() => {
-//   const guilds: Dict<{
-//     name: string
-//     channels: Dict<{
-//       name: string
-//       selfId: string
-//     }>
-//   }> = {}
-//   for (const message of messages.value) {
-//     const outerId = message.guildId || message.selfId + '$'
-//     const guild = guilds[message.platform + '/' + outerId] ||= {
-//       name: message.guildId
-//         ? message.guildName || '未知群组'
-//         : `私聊 (${message.selfName})`,
-//       channels: {},
-//     }
-//     guild.channels[message.channelId] ||= {
-//       name: message.guildId
-//         ? message.channelName || '未知频道'
-//         : message.username,
-//       selfId: message.selfId,
-//     }
-//   }
-//   return guilds
-// })
+watch(keyword, (val) => {
+  tree.value?.filter(val)
+})
+
+interface Tree {
+  id: string
+  label: string
+  children?: Tree[]
+}
+
+const data = computed(() => {
+  const data: Tree[] = []
+  const guilds: Dict<Tree> = {}
+  for (const key in store.chat) {
+    const [platform, guildId, channelId] = key.split('/')
+    if (guildId === channelId) {
+      data.push({
+        id: key,
+        label: store.chat[key].channelName || '未知频道',
+      })
+    } else {
+      let guild = guilds[platform + '/' + guildId]
+      if (!guild) {
+        data.push(guild = guilds[platform + '/' + guildId] = {
+          id: platform + '/' + guildId,
+          label: store.chat[key].guildName || '未知群组',
+          children: [],
+        })
+      }
+      guild.children!.push({
+        id: key,
+        label: store.chat[key].channelName || '未知频道',
+      })
+    }
+  }
+  return data
+})
 
 const header = computed(() => {
-  if (!current.value) return
-  return '122122'
-  // const [platform, guildId, channelId] = current.value.split('/')
-  // const guild = guilds.value[platform + '/' + guildId]
-  // if (!guild) return
-  // return `${guild.name} / ${guild.channels[channelId]?.name}`
+  const channel = store.chat[active.value]
+  if (!channel) return
+  if (channel.channelId === channel.guildId) {
+    return channel.channelName
+  } else {
+    return `${channel.guildName} / ${channel.channelName}`
+  }
 })
 
 const filtered = computed(() => {
-  return messages.value[current.value] || []
+  return messages.value[active.value] || []
 })
+
+function filterNode(value: string, data: Tree) {
+  return data.label.includes(keyword.value)
+}
+
+function handleClick(tree: Tree) {
+  if (tree.children) return
+  active.value = tree.id
+}
+
+function getClass(tree: Tree) {
+  const words: string[] = []
+  if (tree.id === active.value) words.push('is-active')
+  return words.join(' ')
+}
 
 function isSuccessive({ quoteId, userId, channelId }: Message, index: number) {
   const prev = filtered.value[index - 1]
@@ -100,8 +130,8 @@ function isSuccessive({ quoteId, userId, channelId }: Message, index: number) {
 }
 
 function handleSend(content: string) {
-  if (!current.value) return
-  const [platform, guildId, channelId] = current.value.split('/')
+  if (!active.value) return
+  const [platform, guildId, channelId] = active.value.split('/')
   // const { selfId } = channels.value[platform + '/' + guildId].channels[channelId]
   // send('chat', { content, platform, channelId, guildId, selfId })
 }
@@ -111,9 +141,12 @@ function handleSend(content: string) {
 <style lang="scss">
 
 .page-chat {
-  aside .el-scrollbar__view {
+  .layout-left .el-scrollbar__view {
     padding: 1rem 0;
-    line-height: 2.25rem;
+  }
+
+  .search {
+    padding: 0 1.5rem;
   }
 
   main {
