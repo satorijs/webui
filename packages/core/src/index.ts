@@ -1,4 +1,4 @@
-import { Context, Dict, Schema, Service, Session, Time } from 'koishi'
+import { Bot, Context, Dict, Schema, Service, Session, Time } from 'koishi'
 import { SyncChannel } from './channel'
 import { Message } from './message'
 
@@ -78,6 +78,14 @@ class MessageService extends Service {
       })
     })
 
+    this.ctx.on('bot-status-updated', async (bot) => {
+      this.onBotOnline(bot)
+    })
+
+    this.ctx.bots.forEach(async (bot) => {
+      this.onBotOnline(bot)
+    })
+
     // channel updated: 如果在队列内, 打断同步, 停止记录后续消息
     // this.ctx.on('channel-updated', async (session) => {
     //   if (this.inSyncQueue(session.cid)) {
@@ -99,6 +107,21 @@ class MessageService extends Service {
 
   async stop() {
     this.stopped = true
+  }
+
+  private async onBotOnline(bot: Bot) {
+    if (bot.status !== 'online' || bot.hidden) return
+    const guilds = await bot.getGuildList()
+    await Promise.all(guilds.map(async (guild) => {
+      const channels = await bot.getChannelList(guild.guildId)
+      await Promise.all(channels.map(async (channel) => {
+        const key = bot.platform + '/' + guild.guildId + '/' + channel.channelId
+        this._channels[key] ||= new SyncChannel(this.ctx, bot.platform, guild.guildId, channel.channelId)
+        this._channels[key].data.guildName = guild.guildName
+        this._channels[key].data.channelName = channel.channelName
+        await this._channels[key].init()
+      }))
+    }))
   }
 
   async #onMessage(session: Session) {

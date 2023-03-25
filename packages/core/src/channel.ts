@@ -14,7 +14,8 @@ export interface ChannelData {
   guildId: string
   channelId: string
   assignee?: string
-  name?: string
+  guildName?: string
+  channelName?: string
   avatar?: string
   initial?: string
 }
@@ -38,7 +39,7 @@ export class SyncChannel {
     }
 
     if (session.channelName) {
-      this.data.name = session.channelName
+      this.data.channelName = session.channelName
     }
   }
 
