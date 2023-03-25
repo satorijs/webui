@@ -8,6 +8,7 @@ export default (ctx: Context) => {
     name: '聊天',
     icon: 'activity:comments',
     authority: 3,
+    fields: ['chat'],
     component: Chat,
     order: 100,
   })
