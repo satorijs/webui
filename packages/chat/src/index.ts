@@ -1,4 +1,4 @@
-import { Context, Dict, Query, Quester, Schema, segment, valueMap } from 'koishi'
+import { Context, Dict, h, Query, Quester, Schema, valueMap } from 'koishi'
 import { resolve } from 'path'
 import { DataService } from '@koishijs/plugin-console'
 import { ChannelData, Message } from 'koishi-plugin-messages'
@@ -92,12 +92,12 @@ class ChatService extends DataService<Dict<ChannelData>> {
   }
 
   private transform(message: Message) {
-    message.content = segment.transform(message.content, {
+    message.content = h.transform(message.content, {
       image: (data) => {
         if (this.config.whitelist.some(prefix => data.url.startsWith(prefix))) {
           data.url = '/chat/proxy/' + encodeURIComponent(data.url)
         }
-        return segment('image', data)
+        return h('image', data)
       },
     })
   }

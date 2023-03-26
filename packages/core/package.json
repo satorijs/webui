@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-messages",
   "description": "Message service for Koishi",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -13,7 +13,7 @@
   },
   "contributors": [
     "Shigma <shigma10826@gmail.com>",
-    "LittleC <i@ltlec.cn>"
+    "LittleC <i@ltlec.com>"
   ],
   "license": "MIT",
   "repository": {
@@ -47,9 +47,9 @@
     }
   },
   "peerDependencies": {
-    "koishi": "^4.12.1"
+    "koishi": "^4.12.2"
   },
   "devDependencies": {
-    "koishi": "^4.12.1"
+    "koishi": "^4.12.2"
   }
 }
