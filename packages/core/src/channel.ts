@@ -71,7 +71,6 @@ export class SyncChannel {
     const { channelId, platform, assignee } = this.data
     logger.debug('channel %s from %s to %s', channelId, rear, front)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
-    // eslint-disable-next-line no-labels
     outer: while (true) {
       const messages = await bot.getMessageList(channelId, front)
       front = messages[0].messageId
@@ -84,6 +83,27 @@ export class SyncChannel {
         }
       }
     }
+    await this.flush()
+  }
+
+  async getHistory(count: number, front?: string) {
+    const { channelId, platform, assignee } = this.data
+    logger.debug('channel %s get %s to %s', channelId, count, front)
+    const bot = this.ctx.bots[`${platform}:${assignee}`]
+    const buffer: Universal.Message[] = []
+    while (true) {
+      const messages = await bot.getMessageList(channelId, front)
+      front = messages[0].messageId
+      buffer.push(...messages)
+      if (messages.length === 0 || buffer.length >= count) {
+        break
+      }
+    }
+    const data = buffer.reverse().map((session) => {
+      return Message.adapt(session, this.data.platform, this.data.guildId)
+    })
+    await this.ctx.database.upsert('chat.message', data)
+    return data
   }
 
   init(session?: Session) {
@@ -107,7 +127,6 @@ export class SyncChannel {
     ])
     if (final) {
       await this.syncHistory(final.messageId, session?.messageId)
-      await this.flush()
     }
     this.status = SyncStatus.SYNCED
     this.data.initial = initial?.messageId
@@ -124,12 +143,17 @@ export class SyncChannel {
     }
   }
 
-  async getMessages(): Promise<Message[]> {
-    return this.ctx.database
+  async getMessages(count: number): Promise<Message[]> {
+    const messages = await this.ctx.database
       .select('chat.message')
       .where(pick(this.data, ['platform', 'channelId']))
       .orderBy('id', 'desc')
-      .limit(100)
+      .limit(count)
       .execute()
+    messages.reverse()
+    if (messages.length < count) {
+      messages.unshift(...await this.getHistory(count - messages.length, messages[0]?.messageId))
+    }
+    return messages
   }
 }

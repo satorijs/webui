@@ -120,7 +120,6 @@ class MessageService extends Service {
         this._channels[key].data.assignee = bot.selfId
         this._channels[key].data.guildName = guild.guildName
         this._channels[key].data.channelName = channel.channelName
-        // await this._channels[key].init()
       })
     }))
   }
@@ -140,13 +139,6 @@ class MessageService extends Service {
     this._channels[key] = new SyncChannel(this.ctx, platform, guildId, channelId)
     await this._channels[key].init()
     return this._channels[key]
-  }
-
-  async getMessages(platform: string, guildId: string, channelId: string) {
-    const key = platform + '/' + guildId + '/' + channelId
-    const channel = this._channels[key]
-    if (!channel) return []
-    return channel.getMessages()
   }
 }
 
