@@ -32,7 +32,7 @@
           <template #footer><div class="footer-padding"></div></template>
         </virtual-list>
         <div class="card-footer">
-          <chat-input v-model="input" @send="handleSend"></chat-input>
+          <chat-input v-model="input" @send="handleSend" placeholder="向频道发送消息"></chat-input>
         </div>
       </template>
       <template v-else>
@@ -49,6 +49,7 @@
 import { ChatInput, Dict, send, store, VirtualList } from '@koishijs/client'
 import { computed, ref, watch } from 'vue'
 import type { ChannelData, Message } from 'koishi-plugin-messages'
+import {} from '../src'
 import { messages } from './utils'
 import ChatMessage from './message.vue'
 
@@ -168,7 +169,7 @@ function handleSend(content: string) {
 
   .card-footer {
     padding: 1rem 1.25rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--k-color-border);
   }
 }
 

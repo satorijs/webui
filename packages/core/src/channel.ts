@@ -1,7 +1,7 @@
 import { Context, Logger, pick, Session, Universal } from 'koishi'
 import { Message } from './message'
 
-const logger = new Logger('message')
+const logger = new Logger('chat')
 
 export enum SyncStatus {
   SYNCING,
@@ -67,18 +67,18 @@ export class SyncChannel {
     }
   }
 
-  async history(rear: string, front: string) {
+  async syncHistory(rear: string, front?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('from %o to %o', rear, front)
+    logger.debug('channel %s from %s to %s', channelId, rear, front)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     // eslint-disable-next-line no-labels
-    label: while (true) {
+    outer: while (true) {
       const messages = await bot.getMessageList(channelId, front)
       front = messages[0].messageId
       for (const message of messages.reverse()) {
         if (message.messageId === rear) {
           // eslint-disable-next-line no-labels
-          break label
+          break outer
         } else {
           this._buffer.unshift(message)
         }
@@ -105,8 +105,9 @@ export class SyncChannel {
         .limit(1)
         .execute(),
     ])
-    if (final && session) {
-      await this.history(final.messageId, session.messageId)
+    if (final) {
+      await this.syncHistory(final.messageId, session?.messageId)
+      await this.flush()
     }
     this.status = SyncStatus.SYNCED
     this.data.initial = initial?.messageId

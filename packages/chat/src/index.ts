@@ -50,6 +50,8 @@ class ChatService extends DataService<Dict<ChannelData>> {
     }, { authority: 4 })
 
     ctx.console.addListener('chat/history', async function ({ platform, channelId, guildId, id }) {
+      const channel = await ctx.messages.channel(platform, guildId, channelId)
+      await channel.init()
       const key = `${platform}/${guildId}/${channelId}`
       const sel = ctx.database.select('chat.message')
       const query: Query<Message> = { platform, channelId, guildId }
@@ -108,7 +110,7 @@ class ChatService extends DataService<Dict<ChannelData>> {
 }
 
 namespace ChatService {
-  export const using = ['messages', 'console'] as const
+  export const using = ['messages', 'console']
 
   export interface Config {
     whitelist?: string[]

@@ -25,7 +25,7 @@
 
 <script lang="ts" setup>
 
-import { Message } from '../src'
+import { Message } from 'koishi-plugin-messages'
 import { MessageContent, ChatImage } from '@koishijs/client'
 
 defineEmits(['locate'])
@@ -66,7 +66,7 @@ $padding: $avatarSize + 1rem;
   word-break: break-word;
 
   &:hover {
-    background-color: var(--hover-bg);;
+    background-color: var(--k-hover-bg);
   }
 
   &:not(.successive) {
