@@ -1,4 +1,4 @@
-import { Context, Dict, h, Query, Quester, Schema, valueMap } from 'koishi'
+import { Context, Dict, h, Quester, Schema, valueMap } from 'koishi'
 import { resolve } from 'path'
 import { DataService } from '@koishijs/plugin-console'
 import { ChannelData, Message } from 'koishi-plugin-messages'
@@ -51,12 +51,8 @@ class ChatService extends DataService<Dict<ChannelData>> {
 
     ctx.console.addListener('chat/history', async function ({ platform, channelId, guildId, id }) {
       const channel = await ctx.messages.channel(platform, guildId, channelId)
-      await channel.init()
       const key = `${platform}/${guildId}/${channelId}`
-      const sel = ctx.database.select('chat.message')
-      const query: Query<Message> = { platform, channelId, guildId }
-      if (id) query.id = { $lt: id }
-      const messages = await sel.where(query).execute()
+      const messages = await channel.getHistory(50, id)
       for (const message of messages) {
         self.transform(message)
       }

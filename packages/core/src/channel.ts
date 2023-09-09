@@ -72,9 +72,9 @@ export class SyncChannel {
     logger.debug('channel %s from %s to %s', channelId, rear, front)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     outer: while (true) {
-      const messages = await bot.getMessageList(channelId, front)
-      front = messages[0].messageId
-      for (const message of messages.reverse()) {
+      const { data } = await bot.getMessageList(channelId, front)
+      front = data[0].messageId
+      for (const message of data.reverse()) {
         if (message.messageId === rear) {
           // eslint-disable-next-line no-labels
           break outer
@@ -86,24 +86,30 @@ export class SyncChannel {
     await this.flush()
   }
 
+  async adapt(buffer: Universal.Message[]) {
+    const data = buffer.map((session) => {
+      return Message.adapt(session, this.data.platform, this.data.guildId)
+    })
+    await this.ctx.database.upsert('chat.message', data.filter(message => {
+      return Date.now() - +message.timestamp < this.ctx.messages.config.maxAge
+    }))
+    return data
+  }
+
   async getHistory(count: number, front?: string) {
     const { channelId, platform, assignee } = this.data
     logger.debug('channel %s get %s to %s', channelId, count, front)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     const buffer: Universal.Message[] = []
     while (true) {
-      const messages = await bot.getMessageList(channelId, front)
-      front = messages[0].messageId
-      buffer.push(...messages)
-      if (messages.length === 0 || buffer.length >= count) {
+      const { data } = await bot.getMessageList(channelId, front)
+      buffer.push(...data)
+      if (data.length === 0 || buffer.length >= count) {
         break
       }
+      front = data[0].messageId
     }
-    const data = buffer.reverse().map((session) => {
-      return Message.adapt(session, this.data.platform, this.data.guildId)
-    })
-    await this.ctx.database.upsert('chat.message', data)
-    return data
+    return this.adapt(buffer.reverse())
   }
 
   init(session?: Session) {
@@ -135,10 +141,7 @@ export class SyncChannel {
 
   async flush() {
     while (this._buffer.length) {
-      const data = this._buffer.splice(0).map((session) => {
-        return Message.adapt(session, this.data.platform, this.data.guildId)
-      })
-      await this.ctx.database.upsert('chat.message', data)
+      const data = await this.adapt(this._buffer.splice(0))
       this.ctx.emit('chat/message', data, this)
     }
   }

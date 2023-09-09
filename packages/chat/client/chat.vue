@@ -1,7 +1,7 @@
 <template>
   <k-layout class="page-chat">
     <template #header>
-      {{ header }}
+      {{ title }}
     </template>
 
     <template #left>
@@ -25,7 +25,7 @@
     <keep-alive>
       <template v-if="active" :key="active">
         <virtual-list :data="messages[active]" pinned v-model:active-key="index" key-name="messageId">
-          <template #header><div class="header-padding"></div></template>
+          <template #header><div ref="header" class="header-padding"></div></template>
           <template #="data">
             <chat-message :successive="isSuccessive(data, data.index)" :data="data"></chat-message>
           </template>
@@ -48,14 +48,16 @@
 
 import { ChatInput, Dict, send, store, VirtualList } from '@koishijs/client'
 import { computed, ref, watch } from 'vue'
+import { useIntersectionObserver } from '@vueuse/core'
 import type { ChannelData, Message } from 'koishi-plugin-messages'
-import {} from '../src'
+import {} from 'koishi-plugin-chat'
 import { messages } from './utils'
 import ChatMessage from './message.vue'
 
 const index = ref<string>()
 const active = ref<string>('')
 const tree = ref(null)
+const header = ref(null)
 const keyword = ref('')
 const input = ref('')
 
@@ -100,7 +102,7 @@ const data = computed(() => {
   return data
 })
 
-const header = computed(() => {
+const title = computed(() => {
   const channel = store.chat[active.value]
   if (!channel) return
   if (channel.channelId === channel.guildId) {
@@ -144,6 +146,19 @@ function handleSend(content: string) {
   const [platform, guildId, channelId] = active.value.split('/')
   send('chat/send', { content, platform, channelId, guildId })
 }
+
+let task: Promise<void> = null
+
+useIntersectionObserver(header, ([{ isIntersecting }]) => {
+  if (!isIntersecting || task) return
+  task = send('chat/history', {
+    platform: store.chat[active.value].platform,
+    guildId: store.chat[active.value].guildId,
+    channelId: store.chat[active.value].channelId,
+    id: messages.value[active.value][0]?.id,
+  })
+  task.then(() => task = null)
+})
 
 </script>
 

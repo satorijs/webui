@@ -23,7 +23,7 @@ declare module 'koishi' {
 class MessageService extends Service {
   public stopped = false
 
-  constructor(ctx: Context, config: MessageService.Config) {
+  constructor(ctx: Context, public config: MessageService.Config) {
     super(ctx, 'messages', true)
 
     this.ctx.model.extend('chat.message', {
