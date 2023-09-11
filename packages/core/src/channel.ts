@@ -67,13 +67,13 @@ export class SyncChannel {
     }
   }
 
-  async syncHistory(rear: string, front?: string) {
+  async syncHistory(rear: string, next?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('channel %s from %s to %s', channelId, rear, front)
+    logger.debug('channel %s from %s to %s', channelId, rear, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     outer: while (true) {
-      const { data } = await bot.getMessageList(channelId, front)
-      front = data[0].messageId
+      const { data } = await bot.getMessageList(channelId, next)
+      next = data[0].messageId
       for (const message of data.reverse()) {
         if (message.messageId === rear) {
           // eslint-disable-next-line no-labels
@@ -96,18 +96,18 @@ export class SyncChannel {
     return data
   }
 
-  async getHistory(count: number, front?: string) {
+  async getHistory(count: number, next?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('channel %s get %s to %s', channelId, count, front)
+    logger.debug('channel %s get %s to %s', channelId, count, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     const buffer: Universal.Message[] = []
     while (true) {
-      const { data } = await bot.getMessageList(channelId, front)
+      const { data } = await bot.getMessageList(channelId, next)
       buffer.push(...data)
       if (data.length === 0 || buffer.length >= count) {
         break
       }
-      front = data[0].messageId
+      next = data[0].messageId
     }
     return this.adapt(buffer.reverse())
   }

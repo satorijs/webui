@@ -111,17 +111,18 @@ class MessageService extends Service {
 
   private async onBotOnline(bot: Bot) {
     if (bot.status !== 'online' || bot.hidden) return
-    const guilds = await bot.getGuildList()
-    await Promise.all(guilds.map(async (guild) => {
-      const channels = await bot.getChannelList(guild.guildId)
-      channels.forEach((channel) => {
-        const key = bot.platform + '/' + guild.guildId + '/' + channel.channelId
-        this._channels[key] ||= new SyncChannel(this.ctx, bot.platform, guild.guildId, channel.channelId)
-        this._channels[key].data.assignee = bot.selfId
-        this._channels[key].data.guildName = guild.guildName
-        this._channels[key].data.channelName = channel.channelName
-      })
-    }))
+    const tasks: Promise<any>[] = []
+    for await (const guild of bot.getGuildIter()) {
+      tasks.push((async () => {
+        for await (const channel of bot.getChannelIter(guild.id)) {
+          const key = bot.platform + '/' + guild.id + '/' + channel.id
+          this._channels[key] ||= new SyncChannel(this.ctx, bot.platform, guild.id, channel.id)
+          this._channels[key].data.assignee = bot.selfId
+          this._channels[key].data.guildName = guild.name
+          this._channels[key].data.channelName = channel.name
+        }
+      })())
+    }
   }
 
   async #onMessage(session: Session) {

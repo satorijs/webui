@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-chat",
   "description": "Display and respond to messages for Koishi",
-  "version": "4.0.0",
+  "version": "4.0.2",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -47,15 +47,15 @@
     }
   },
   "peerDependencies": {
-    "@koishijs/plugin-console": "^5.13.3",
-    "koishi": "^4.14.3",
-    "koishi-plugin-messages": "^0.1.0"
+    "@koishijs/plugin-console": "^5.14.3",
+    "koishi": "^4.14.6",
+    "koishi-plugin-messages": "^0.2.2"
   },
   "devDependencies": {
     "@koishijs/assets": "^1.0.2",
-    "@koishijs/client": "^5.13.3",
-    "@koishijs/plugin-console": "^5.13.3",
-    "koishi": "^4.14.3",
-    "koishi-plugin-messages": "^0.1.0"
+    "@koishijs/client": "^5.14.3",
+    "@koishijs/plugin-console": "^5.14.3",
+    "koishi": "^4.14.6",
+    "koishi-plugin-messages": "^0.2.2"
   }
 }
