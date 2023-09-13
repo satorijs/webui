@@ -136,9 +136,12 @@ function getClass(tree: Tree) {
   return words.join(' ')
 }
 
-function isSuccessive({ quoteId, userId, channelId }: Message, index: number) {
+function isSuccessive({ quoteId, userId, channelId, username }: Message, index: number) {
   const prev = (messages.value[active.value] ||= [])[index - 1]
-  return !quoteId && !!prev && prev.userId === userId && prev.channelId === channelId
+  return !quoteId && !!prev
+    && prev.userId === userId
+    && prev.channelId === channelId
+    && prev.username === username
 }
 
 function handleSend(content: string) {
