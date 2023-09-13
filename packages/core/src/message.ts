@@ -1,4 +1,4 @@
-import { h, Session } from 'koishi'
+import { h, Session, Universal } from 'koishi'
 
 // https://discord.com/developers/docs/reference#snowflakes
 // timestamp      63 to 22      42 bits       (snowflake >> 22) + 1420070400000
@@ -27,7 +27,6 @@ export interface Message {
   content: string
   messageId: string
   platform: string
-  guildId: string
   userId: string
   avatar?: string
   timestamp: Date
@@ -40,7 +39,29 @@ export interface Message {
 }
 
 export namespace Message {
-  export function adapt(message: Partial<Session>, platform = message.platform, guildId = message.guildId): Message {
+  export function fromSession(session: Session): Message {
+    const elements = h.parse(session.content)
+    let quoteId: string = null
+    if (elements[0]?.type === 'quote') {
+      quoteId = elements.shift().attrs.id
+      session.content = elements.join('')
+    }
+    return {
+      id: snowflake().toString(),
+      messageId: session.messageId,
+      content: session.content,
+      platform: session.platform,
+      timestamp: new Date(session.timestamp),
+      userId: session.userId,
+      channelId: session.channelId,
+      avatar: session.data.user.avatar,
+      username: session.data.user.name,
+      nickname: session.data.member?.name,
+      quoteId,
+    }
+  }
+
+  export function fromUniversal(message: Universal.Message, platform: string): Message {
     const elements = h.parse(message.content)
     let quoteId: string = null
     if (elements[0]?.type === 'quote') {
@@ -48,17 +69,16 @@ export namespace Message {
       message.content = elements.join('')
     }
     return {
-      id: snowflake().toString(),
-      messageId: message.messageId,
-      content: message.content,
       platform,
-      guildId,
+      id: snowflake().toString(),
+      messageId: message.id,
+      content: message.content,
       timestamp: new Date(message.timestamp),
-      userId: message.userId || message.author.userId,
-      avatar: message.author.avatar,
-      username: message.author.username,
-      nickname: message.author.nickname,
-      channelId: message.channelId,
+      channelId: message.channel.id,
+      userId: message.user.id,
+      avatar: message.user.avatar,
+      username: message.user.name,
+      nickname: message.member?.name,
       quoteId,
     }
   }

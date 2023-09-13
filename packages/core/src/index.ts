@@ -30,7 +30,6 @@ class MessageService extends Service {
       id: 'string',
       content: 'text',
       platform: 'string',
-      guildId: 'string',
       messageId: 'string',
       userId: 'string',
       timestamp: 'timestamp',
@@ -110,7 +109,7 @@ class MessageService extends Service {
   }
 
   private async onBotOnline(bot: Bot) {
-    if (bot.status !== 'online' || bot.hidden) return
+    if (bot.status !== 'online' || bot.hidden || !bot.getMessageList || !bot.getGuildList) return
     const tasks: Promise<any>[] = []
     for await (const guild of bot.getGuildIter()) {
       tasks.push((async () => {

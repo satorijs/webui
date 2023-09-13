@@ -1,4 +1,4 @@
-import { Context, Logger, pick, Session, Universal } from 'koishi'
+import { Context, Logger, pick, Session } from 'koishi'
 import { Message } from './message'
 
 const logger = new Logger('chat')
@@ -23,7 +23,7 @@ export interface ChannelData {
 export class SyncChannel {
   public data: ChannelData
   public status = SyncStatus.SYNCING
-  private _buffer: Universal.Message[] = []
+  private _buffer: Message[] = []
   private _initTask: Promise<void>
   private _queueTask = Promise.resolve()
 
@@ -38,14 +38,14 @@ export class SyncChannel {
       return true
     }
 
-    if (session.channelName) {
-      this.data.channelName = session.channelName
+    if (session.data.channel?.name) {
+      this.data.channelName = session.data.channel.name
     }
   }
 
   async queue(session: Session) {
     if (this.accept(session)) return
-    this._buffer.push(session)
+    this._buffer.push(Message.fromSession(session))
     this.ensure(async () => {
       if (this.status === SyncStatus.SYNCING) {
         await this.init(session)
@@ -73,41 +73,38 @@ export class SyncChannel {
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     outer: while (true) {
       const { data } = await bot.getMessageList(channelId, next)
-      next = data[0].messageId
+      next = data[0].id
       for (const message of data.reverse()) {
-        if (message.messageId === rear) {
+        if (message.id === rear) {
           // eslint-disable-next-line no-labels
           break outer
         } else {
-          this._buffer.unshift(message)
+          this._buffer.unshift(Message.fromUniversal(message, platform))
         }
       }
     }
     await this.flush()
   }
 
-  async adapt(buffer: Universal.Message[]) {
-    const data = buffer.map((session) => {
-      return Message.adapt(session, this.data.platform, this.data.guildId)
-    })
-    await this.ctx.database.upsert('chat.message', data.filter(message => {
+  async adapt(buffer: Message[]) {
+    await this.ctx.database.upsert('chat.message', buffer.filter(message => {
       return Date.now() - +message.timestamp < this.ctx.messages.config.maxAge
     }))
-    return data
+    return buffer
   }
 
   async getHistory(count: number, next?: string) {
     const { channelId, platform, assignee } = this.data
     logger.debug('channel %s get %s to %s', channelId, count, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
-    const buffer: Universal.Message[] = []
+    const buffer: Message[] = []
     while (true) {
       const { data } = await bot.getMessageList(channelId, next)
-      buffer.push(...data)
+      buffer.push(...data.map(message => Message.fromUniversal(message, platform)))
       if (data.length === 0 || buffer.length >= count) {
         break
       }
-      next = data[0].messageId
+      next = data[0].id
     }
     return this.adapt(buffer.reverse())
   }
