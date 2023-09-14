@@ -69,7 +69,7 @@ export class SyncChannel {
 
   async syncHistory(rear: string, next?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('channel %s from %s to %s', channelId, rear, next)
+    logger.debug('[history] channel=%s %s->%s', channelId, rear, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     outer: while (true) {
       const { data } = await bot.getMessageList(channelId, next)
@@ -95,7 +95,7 @@ export class SyncChannel {
 
   async getHistory(count: number, next?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('channel %s get %s to %s', channelId, count, next)
+    logger.debug('[history] channel=%s (%s)->%s', channelId, count, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     const buffer: Message[] = []
     while (true) {
@@ -114,6 +114,7 @@ export class SyncChannel {
   }
 
   private async _init(session?: Session) {
+    logger.debug('init channel %s %s %s', this.data.platform, this.data.guildId, this.data.channelId)
     const [[initial], [final]] = await Promise.all([
       this.ctx.database
         .select('chat.message')

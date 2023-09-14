@@ -1,9 +1,10 @@
-import { Context, Dict, h, Quester, Schema, valueMap } from 'koishi'
+import { Context, Dict, h, Logger, Quester, Schema, Universal, valueMap } from 'koishi'
 import { resolve } from 'path'
 import { DataService } from '@koishijs/plugin-console'
 import { ChannelData, Message } from 'koishi-plugin-messages'
 import {} from '@koishijs/assets'
 import internal from 'stream'
+import { fromAsync } from './utils'
 
 interface SendPayload {
   content: string
@@ -29,8 +30,11 @@ declare module '@koishijs/plugin-console' {
   interface Events {
     'chat/send'(this: Client, payload: SendPayload): Promise<void>
     'chat/history'(this: Client, payload: HistoryPayload): Promise<void>
+    'chat/members'(this: Client, platform: string, guildId: string): Promise<Universal.GuildMember[]>
   }
 }
+
+const logger = new Logger('chat')
 
 class ChatService extends DataService<Dict<ChannelData>> {
   constructor(ctx: Context, private config: ChatService.Config) {
@@ -61,6 +65,12 @@ class ChatService extends DataService<Dict<ChannelData>> {
         body: { key, messages, history: true },
       })
     }, { authority: 4 })
+
+    ctx.console.addListener('chat/members', async function (platform, guildId) {
+      const bot = ctx.bots.filter(bot => bot.platform === platform)[0]
+      logger.debug('chat/members')
+      return await fromAsync(bot.getGuildMemberIter(guildId))
+    })
 
     ctx.on('chat/channel', (sync) => {
       this.refresh()

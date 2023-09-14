@@ -22,6 +22,12 @@
       </el-scrollbar>
     </template>
 
+    <template #right v-if="active">
+      <div v-for="member of members[store.chat[active]?.guildId]">
+        {{ member }}
+      </div>
+    </template>
+
     <keep-alive>
       <template v-if="active" :key="active">
         <virtual-list :data="messages[active]" pinned v-model:active-key="index" key-name="messageId">
@@ -51,7 +57,7 @@ import { computed, ref, watch } from 'vue'
 import { useIntersectionObserver } from '@vueuse/core'
 import type { ChannelData, Message } from 'koishi-plugin-messages'
 import {} from 'koishi-plugin-chat'
-import { messages } from './utils'
+import { messages, members } from './utils'
 import ChatMessage from './message.vue'
 
 const index = ref<string>()
@@ -161,6 +167,11 @@ useIntersectionObserver(header, ([{ isIntersecting }]) => {
     id: messages.value[active.value][0]?.id,
   })
   task.then(() => task = null)
+})
+
+watch(() => store.chat[active.value]?.guildId, async (guildId) => {
+  if (!guildId) return
+  members.value[guildId] = await send('chat/members', store.chat[active.value].platform, guildId)
 })
 
 </script>
