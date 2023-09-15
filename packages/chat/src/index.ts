@@ -1,7 +1,7 @@
-import { Context, Dict, h, Logger, Quester, Schema, Universal, valueMap } from 'koishi'
+import { Context, h, Logger, Quester, Schema, Universal } from 'koishi'
 import { resolve } from 'path'
 import { DataService } from '@koishijs/plugin-console'
-import { ChannelData, Message } from 'koishi-plugin-messages'
+import MessageService, { Message } from 'koishi-plugin-messages'
 import {} from '@koishijs/assets'
 import internal from 'stream'
 import { fromAsync } from './utils'
@@ -36,7 +36,7 @@ declare module '@koishijs/plugin-console' {
 
 const logger = new Logger('chat')
 
-class ChatService extends DataService<Dict<ChannelData>> {
+class ChatService extends DataService<MessageService.Data> {
   constructor(ctx: Context, private config: ChatService.Config) {
     super(ctx, 'chat')
     const self = this
@@ -72,7 +72,7 @@ class ChatService extends DataService<Dict<ChannelData>> {
       return await fromAsync(bot.getGuildMemberIter(guildId))
     })
 
-    ctx.on('chat/channel', (sync) => {
+    ctx.on('chat/update', () => {
       this.refresh()
     })
 
@@ -111,7 +111,7 @@ class ChatService extends DataService<Dict<ChannelData>> {
   }
 
   async get() {
-    return valueMap(this.ctx.messages._channels, sync => sync.data)
+    return this.ctx.messages.toJSON()
   }
 }
 

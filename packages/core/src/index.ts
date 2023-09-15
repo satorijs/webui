@@ -1,5 +1,6 @@
-import { Bot, Context, Dict, Schema, Service, Session, Time } from 'koishi'
+import { Bot, Context, Dict, Schema, Service, Session, Time, valueMap } from 'koishi'
 import { SyncChannel } from './channel'
+import { SyncGuild } from './guild'
 import { Message } from './message'
 
 export * from './channel'
@@ -15,7 +16,7 @@ declare module 'koishi' {
   }
 
   interface Events {
-    'chat/channel'(channel: SyncChannel): void
+    'chat/update'(): void
     'chat/message'(messages: Message[], channel: SyncChannel): void
   }
 }
@@ -44,6 +45,7 @@ class MessageService extends Service {
   }
 
   _channels: Dict<SyncChannel> = {}
+  _guilds: Dict<SyncGuild> = {}
 
   async start() {
     // 如果是一个 platform 有多个 bot, bot 状态变化, 频道状态变化待解决
@@ -112,6 +114,8 @@ class MessageService extends Service {
     if (bot.status !== 'online' || bot.hidden || !bot.getMessageList || !bot.getGuildList) return
     const tasks: Promise<any>[] = []
     for await (const guild of bot.getGuildIter()) {
+      const key = bot.platform + '/' + guild.id
+      this._guilds[key] ||= new SyncGuild()
       tasks.push((async () => {
         for await (const channel of bot.getChannelIter(guild.id)) {
           const key = bot.platform + '/' + guild.id + '/' + channel.id
@@ -122,6 +126,7 @@ class MessageService extends Service {
         }
       })())
     }
+    this.ctx.emit('chat/update')
   }
 
   async #onMessage(session: Session) {
@@ -140,9 +145,21 @@ class MessageService extends Service {
     await this._channels[key].init()
     return this._channels[key]
   }
+
+  toJSON(): MessageService.Data {
+    return {
+      channels: valueMap(this._channels, sync => sync.toJSON()),
+      guilds: valueMap(this._guilds, sync => sync.toJSON()),
+    }
+  }
 }
 
 namespace MessageService {
+  export interface Data {
+    channels: Dict<SyncChannel.Data>
+    guilds: Dict<SyncGuild.Data>
+  }
+
   export interface Config {
     maxAge?: number
   }

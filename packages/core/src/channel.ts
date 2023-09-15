@@ -9,19 +9,8 @@ export enum SyncStatus {
   FAILED,
 }
 
-export interface ChannelData {
-  platform: string
-  guildId: string
-  channelId: string
-  assignee?: string
-  guildName?: string
-  channelName?: string
-  avatar?: string
-  initial?: string
-}
-
 export class SyncChannel {
-  public data: ChannelData
+  public data: SyncChannel.Data
   public status = SyncStatus.SYNCING
   private _buffer: Message[] = []
   private _initTask: Promise<void>
@@ -69,7 +58,7 @@ export class SyncChannel {
 
   async syncHistory(rear: string, next?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('[history] channel=%s %s->%s', channelId, rear, next)
+    logger.debug('[history] platform=%s channel=%s %s->%s', platform, channelId, rear, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     outer: while (true) {
       const { data } = await bot.getMessageList(channelId, next)
@@ -95,7 +84,7 @@ export class SyncChannel {
 
   async getHistory(count: number, next?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('[history] channel=%s (%s)->%s', channelId, count, next)
+    logger.debug('[history] platform=%s channel=%s (%s)->%s', platform, channelId, count, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
     const buffer: Message[] = []
     while (true) {
@@ -134,7 +123,6 @@ export class SyncChannel {
     }
     this.status = SyncStatus.SYNCED
     this.data.initial = initial?.messageId
-    this.ctx.emit('chat/channel', this)
   }
 
   async flush() {
@@ -156,5 +144,22 @@ export class SyncChannel {
       messages.unshift(...await this.getHistory(count - messages.length, messages[0]?.messageId))
     }
     return messages
+  }
+
+  toJSON(): SyncChannel.Data {
+    return this.data
+  }
+}
+
+export namespace SyncChannel {
+  export interface Data {
+    platform: string
+    guildId: string
+    channelId: string
+    assignee?: string
+    guildName?: string
+    channelName?: string
+    avatar?: string
+    initial?: string
   }
 }

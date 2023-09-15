@@ -23,7 +23,7 @@
     </template>
 
     <template #right v-if="active">
-      <div v-for="member of members[store.chat[active]?.guildId]">
+      <div v-for="member of members[store.chat.channels[active]?.guildId]">
         {{ member }}
       </div>
     </template>
@@ -81,27 +81,27 @@ interface Tree {
 const data = computed(() => {
   const data: Tree[] = []
   const guilds: Dict<Tree> = {}
-  for (const key in store.chat) {
+  for (const key in store.chat.channels) {
     const [platform, guildId, channelId] = key.split('/')
     if (guildId === channelId) {
       data.push({
         id: key,
-        label: store.chat[key].channelName || '未知频道',
-        data: store.chat[key],
+        label: store.chat.channels[key].channelName || '未知频道',
+        data: store.chat.channels[key],
       })
     } else {
       let guild = guilds[platform + '/' + guildId]
       if (!guild) {
         data.push(guild = guilds[platform + '/' + guildId] = {
           id: platform + '/' + guildId,
-          label: store.chat[key].guildName || '未知群组',
+          label: store.chat.channels[key].guildName || '未知群组',
           children: [],
         })
       }
       guild.children!.push({
         id: key,
-        label: store.chat[key].channelName || '未知频道',
-        data: store.chat[key],
+        label: store.chat.channels[key].channelName || '未知频道',
+        data: store.chat.channels[key],
       })
     }
   }
@@ -109,7 +109,7 @@ const data = computed(() => {
 })
 
 const title = computed(() => {
-  const channel = store.chat[active.value]
+  const channel = store.chat.channels[active.value]
   if (!channel) return
   if (channel.channelId === channel.guildId) {
     return channel.channelName
@@ -161,17 +161,17 @@ let task: Promise<void> = null
 useIntersectionObserver(header, ([{ isIntersecting }]) => {
   if (!isIntersecting || task) return
   task = send('chat/history', {
-    platform: store.chat[active.value].platform,
-    guildId: store.chat[active.value].guildId,
-    channelId: store.chat[active.value].channelId,
+    platform: store.chat.channels[active.value].platform,
+    guildId: store.chat.channels[active.value].guildId,
+    channelId: store.chat.channels[active.value].channelId,
     id: messages.value[active.value][0]?.id,
   })
   task.then(() => task = null)
 })
 
-watch(() => store.chat[active.value]?.guildId, async (guildId) => {
+watch(() => store.chat.channels[active.value]?.guildId, async (guildId) => {
   if (!guildId) return
-  members.value[guildId] = await send('chat/members', store.chat[active.value].platform, guildId)
+  members.value[guildId] = await send('chat/members', store.chat.channels[active.value].platform, guildId)
 })
 
 </script>
