@@ -24,7 +24,7 @@
 
     <template #right v-if="active">
       <div v-for="member of members[store.chat.channels[active]?.guildId]">
-        {{ member }}
+        <member-view :data="member"></member-view>
       </div>
     </template>
 
@@ -55,9 +55,10 @@
 import { ChatInput, Dict, send, store, VirtualList } from '@koishijs/client'
 import { computed, ref, watch } from 'vue'
 import { useIntersectionObserver } from '@vueuse/core'
-import type { ChannelData, Message } from 'koishi-plugin-messages'
+import type { Message, SyncChannel } from 'koishi-plugin-messages'
 import {} from 'koishi-plugin-chat'
 import { messages, members } from './utils'
+import MemberView from './member.vue'
 import ChatMessage from './message.vue'
 
 const index = ref<string>()
@@ -75,7 +76,7 @@ interface Tree {
   id: string
   label: string
   children?: Tree[]
-  data?: ChannelData
+  data?: SyncChannel.Data
 }
 
 const data = computed(() => {
