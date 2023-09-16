@@ -23,9 +23,13 @@
     </template>
 
     <template #right v-if="active">
-      <div v-for="member of members[store.chat.channels[active]?.guildId]">
-        <member-view :data="member"></member-view>
-      </div>
+      <virtual-list :data="members[store.chat.channels[active]?.guildId]?.data || []" pinned key-name="user.id">
+        <template #header><div ref="header" class="header-padding"></div></template>
+        <template #="data">
+          <member-view :data="data"></member-view>
+        </template>
+        <template #footer><div class="footer-padding"></div></template>
+      </virtual-list>
     </template>
 
     <keep-alive>

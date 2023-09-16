@@ -1,4 +1,15 @@
+import { Bot, Universal } from 'koishi'
+
 export class SyncGuild {
+  public members: Universal.List<Universal.GuildMember>
+
+  constructor(public bot: Bot, public data: Universal.Guild) {}
+
+  async getMembers() {
+    if (this.members) return this.members
+    return this.members = await this.bot.getGuildMemberList(this.data.id)
+  }
+
   toJSON(): SyncGuild.Data {
     return {}
   }

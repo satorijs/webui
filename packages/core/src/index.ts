@@ -115,7 +115,7 @@ class MessageService extends Service {
     const tasks: Promise<any>[] = []
     for await (const guild of bot.getGuildIter()) {
       const key = bot.platform + '/' + guild.id
-      this._guilds[key] ||= new SyncGuild()
+      this._guilds[key] ||= new SyncGuild(bot, guild)
       tasks.push((async () => {
         for await (const channel of bot.getChannelIter(guild.id)) {
           const key = bot.platform + '/' + guild.id + '/' + channel.id
@@ -133,17 +133,19 @@ class MessageService extends Service {
     const { platform, guildId, channelId } = session
     if (session.bot.hidden) return
     const key = platform + '/' + guildId + '/' + channelId
-    this._channels[key] ||= new SyncChannel(this.ctx, platform, guildId, channelId)
-    this._channels[key].queue(session)
+    this._channels[key]?.queue(session)
+  }
+
+  guild(platform: string, guildId: string) {
+    const key = platform + '/' + guildId
+    return this._guilds[key]
   }
 
   async channel(platform: string, guildId: string, channelId: string) {
     const key = platform + '/' + guildId + '/' + channelId
     const channel = this._channels[key]
-    if (channel) return channel
-    this._channels[key] = new SyncChannel(this.ctx, platform, guildId, channelId)
-    await this._channels[key].init()
-    return this._channels[key]
+    await channel?.init()
+    return channel
   }
 
   toJSON(): MessageService.Data {

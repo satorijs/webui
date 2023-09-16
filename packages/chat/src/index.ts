@@ -4,7 +4,6 @@ import { DataService } from '@koishijs/plugin-console'
 import MessageService, { Message } from 'koishi-plugin-messages'
 import {} from '@koishijs/assets'
 import internal from 'stream'
-import { fromAsync } from './utils'
 
 interface SendPayload {
   content: string
@@ -30,7 +29,7 @@ declare module '@koishijs/plugin-console' {
   interface Events {
     'chat/send'(this: Client, payload: SendPayload): Promise<void>
     'chat/history'(this: Client, payload: HistoryPayload): Promise<void>
-    'chat/members'(this: Client, platform: string, guildId: string): Promise<Universal.GuildMember[]>
+    'chat/members'(this: Client, platform: string, guildId: string): Promise<Universal.List<Universal.GuildMember>>
   }
 }
 
@@ -67,9 +66,8 @@ class ChatService extends DataService<MessageService.Data> {
     }, { authority: 4 })
 
     ctx.console.addListener('chat/members', async function (platform, guildId) {
-      const bot = ctx.bots.filter(bot => bot.platform === platform)[0]
-      logger.debug('chat/members')
-      return await fromAsync(bot.getGuildMemberIter(guildId))
+      const guild = ctx.messages.guild(platform, guildId)
+      return guild.getMembers()
     })
 
     ctx.on('chat/update', () => {
