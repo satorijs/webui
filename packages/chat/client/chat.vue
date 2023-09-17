@@ -22,9 +22,13 @@
       </el-scrollbar>
     </template>
 
-    <template #right v-if="active">
-      <virtual-list :data="members[store.chat.channels[active]?.guildId]?.data || []" pinned key-name="user.id">
-        <template #header><div ref="header" class="header-padding"></div></template>
+    <template #right v-if="members[activeGuild]">
+      <virtual-list class="members" :data="members[activeGuild].data" pinned key-name="user.id">
+        <template #header>
+          <div ref="header" class="header-padding">
+            <div class="header-title">成员列表 ({{ members[activeGuild].next ? '加载中' : members[activeGuild].data.length }})</div>
+          </div>
+        </template>
         <template #="data">
           <member-view :data="data"></member-view>
         </template>
@@ -33,8 +37,8 @@
     </template>
 
     <keep-alive>
-      <template v-if="active" :key="active">
-        <virtual-list :data="messages[active]" pinned v-model:active-key="index" key-name="messageId">
+      <template v-if="activeChannel" :key="activeChannel">
+        <virtual-list class="messages" :data="messages[activeChannel]" pinned v-model:activeChannel-key="index" key-name="messageId">
           <template #header><div ref="header" class="header-padding"></div></template>
           <template #="data">
             <chat-message :successive="isSuccessive(data, data.index)" :data="data"></chat-message>
@@ -66,7 +70,8 @@ import MemberView from './member.vue'
 import ChatMessage from './message.vue'
 
 const index = ref<string>()
-const active = ref<string>('')
+const activeChannel = ref<string>('')
+const activeGuild = ref<string>('')
 const tree = ref(null)
 const header = ref(null)
 const keyword = ref('')
@@ -114,7 +119,7 @@ const data = computed(() => {
 })
 
 const title = computed(() => {
-  const channel = store.chat.channels[active.value]
+  const channel = store.chat.channels[activeChannel.value]
   if (!channel) return
   if (channel.channelId === channel.guildId) {
     return channel.channelName
@@ -129,7 +134,8 @@ function filterNode(value: string, data: Tree) {
 
 function handleClick(tree: Tree) {
   if (tree.children) return
-  active.value = tree.id
+  activeChannel.value = tree.id
+  activeGuild.value = tree.data!.guildId
   const list = messages.value[tree.id] ||= []
   if (list.length <= 100) {
     send('chat/history', {
@@ -143,12 +149,12 @@ function handleClick(tree: Tree) {
 
 function getClass(tree: Tree) {
   const words: string[] = []
-  if (tree.id === active.value) words.push('is-active')
+  if (tree.id === activeChannel.value) words.push('is-activeChannel')
   return words.join(' ')
 }
 
 function isSuccessive({ quoteId, userId, channelId, username }: Message, index: number) {
-  const prev = (messages.value[active.value] ||= [])[index - 1]
+  const prev = (messages.value[activeChannel.value] ||= [])[index - 1]
   return !quoteId && !!prev
     && prev.userId === userId
     && prev.channelId === channelId
@@ -156,8 +162,8 @@ function isSuccessive({ quoteId, userId, channelId, username }: Message, index: 
 }
 
 function handleSend(content: string) {
-  if (!active.value) return
-  const [platform, guildId, channelId] = active.value.split('/')
+  if (!activeChannel.value) return
+  const [platform, guildId, channelId] = activeChannel.value.split('/')
   send('chat/send', { content, platform, channelId, guildId })
 }
 
@@ -166,17 +172,17 @@ let task: Promise<void> = null
 useIntersectionObserver(header, ([{ isIntersecting }]) => {
   if (!isIntersecting || task) return
   task = send('chat/history', {
-    platform: store.chat.channels[active.value].platform,
-    guildId: store.chat.channels[active.value].guildId,
-    channelId: store.chat.channels[active.value].channelId,
-    id: messages.value[active.value][0]?.id,
+    platform: store.chat.channels[activeChannel.value].platform,
+    guildId: store.chat.channels[activeChannel.value].guildId,
+    channelId: store.chat.channels[activeChannel.value].channelId,
+    id: messages.value[activeChannel.value][0]?.id,
   })
   task.then(() => task = null)
 })
 
-watch(() => store.chat.channels[active.value]?.guildId, async (guildId) => {
+watch(() => store.chat.channels[activeChannel.value]?.guildId, async (guildId) => {
   if (!guildId) return
-  members.value[guildId] = await send('chat/members', store.chat.channels[active.value].platform, guildId)
+  members.value[guildId] = await send('chat/members', store.chat.channels[activeChannel.value].platform, guildId)
 })
 
 </script>
@@ -197,8 +203,16 @@ watch(() => store.chat.channels[active.value]?.guildId, async (guildId) => {
     flex-direction: column;
   }
 
-  .header-padding, .footer-padding {
-    padding: 0.25rem 0;
+  .messages {
+    .header-padding, .footer-padding {
+      padding: 0.25rem 0;
+    }
+  }
+
+  .members {
+    .header-padding, .footer-padding {
+      padding: 0.5rem 1rem;
+    }
   }
 
   .card-footer {

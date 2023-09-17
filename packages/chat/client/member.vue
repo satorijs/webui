@@ -34,12 +34,17 @@ $avatar-size: 2rem;
   overflow: hidden;
   align-items: center;
   gap: 0 1rem;
+  user-select: none;
 }
 
 .left, .right {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.left {
+  width: $avatar-size;
 }
 
 .avatar {
