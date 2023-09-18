@@ -12,4 +12,12 @@ export default (ctx: Context) => {
     component: Chat,
     order: 100,
   })
+
+  ctx.menu('chat.message', [{
+    id: '.delete',
+    label: '删除消息',
+  }, {
+    id: '.quote',
+    label: '引用回复',
+  }])
 }

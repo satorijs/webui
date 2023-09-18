@@ -60,7 +60,7 @@
 
 <script lang="ts" setup>
 
-import { ChatInput, Dict, send, store, VirtualList } from '@koishijs/client'
+import { ChatInput, Dict, send, store, VirtualList, useContext } from '@koishijs/client'
 import { computed, ref, watch } from 'vue'
 import { useIntersectionObserver } from '@vueuse/core'
 import type { Message, SyncChannel } from 'koishi-plugin-messages'
@@ -76,6 +76,16 @@ const tree = ref(null)
 const header = ref(null)
 const keyword = ref('')
 const input = ref('')
+
+const ctx = useContext()
+
+ctx.action('chat.message.delete', {
+  action: ({ chat }) => {}, // deleteMessage(chat.message),
+})
+
+ctx.action('chat.message.quote', {
+  action: ({ chat }) => {}, // quote.value = chat.message,
+})
 
 watch(keyword, (val) => {
   tree.value?.filter(val)

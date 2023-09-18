@@ -3,6 +3,12 @@ import { Message } from 'koishi-plugin-messages'
 import type { Universal } from 'koishi'
 import { ref } from 'vue'
 
+declare module '@koishijs/client' {
+  interface ActionContext {
+    'chat.message': Message
+  }
+}
+
 export const messages = ref<Dict<Message[]>>({})
 export const members = ref<Dict<Universal.List<Universal.GuildMember>>>({})
 

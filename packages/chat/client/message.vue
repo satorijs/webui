@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-message" :class="{ successive }">
+  <div class="chat-message" :class="{ successive }" @contextmenu.stop="trigger($event, data)">
     <div class="quote" v-if="data.quote" @click="$emit('locate', data.quote.messageId)">
       <img class="quote-avatar" v-if="data.quote.author.avatar" :src="data.quote.author.avatar"/>
       <span class="username">{{ data.quote.author.username }}</span>
@@ -26,7 +26,7 @@
 <script lang="ts" setup>
 
 import { Message } from 'koishi-plugin-messages'
-import { MessageContent, ChatImage } from '@koishijs/client'
+import { MessageContent, ChatImage, useMenu } from '@koishijs/client'
 
 defineEmits(['locate'])
 
@@ -34,6 +34,8 @@ defineProps<{
   data: Message
   successive: boolean
 }>()
+
+const trigger = useMenu('chat.message')
 
 function formatAbstract(content: string) {
   if (content.length < 50) return content
@@ -62,8 +64,10 @@ $padding: $avatarSize + 1rem;
 
 .chat-message {
   position: relative;
-  padding: 0 1.5rem;
+  padding: 0 1rem;
   word-break: break-word;
+
+  --k-hover-bg: var(--bg2);
 
   &:hover {
     background-color: var(--k-hover-bg);
@@ -82,9 +86,13 @@ $padding: $avatarSize + 1rem;
       position: absolute;
       visibility: hidden;
       left: 0;
+      top: 0;
+      height: 100%;
       width: $padding + 1rem;
-      text-align: center;
       user-select: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     &:hover {
