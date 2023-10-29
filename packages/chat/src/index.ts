@@ -1,6 +1,6 @@
 import { Context, h, Logger, Quester, Schema, Universal } from 'koishi'
 import { resolve } from 'path'
-import { DataService } from '@koishijs/plugin-console'
+import { DataService } from '@koishijs/console'
 import MessageService, { Message } from 'koishi-plugin-messages'
 import {} from '@koishijs/assets'
 import internal from 'stream'
@@ -19,7 +19,7 @@ interface HistoryPayload {
   id?: string
 }
 
-declare module '@koishijs/plugin-console' {
+declare module '@koishijs/console' {
   namespace Console {
     interface Services {
       chat: ChatService
