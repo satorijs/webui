@@ -27,8 +27,8 @@ export class SyncChannel {
       return true
     }
 
-    if (session.data.channel?.name) {
-      this.data.channelName = session.data.channel.name
+    if (session.event.channel?.name) {
+      this.data.channelName = session.event.channel.name
     }
   }
 

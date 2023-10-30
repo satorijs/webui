@@ -54,9 +54,9 @@ export namespace Message {
       timestamp: new Date(session.timestamp),
       userId: session.userId,
       channelId: session.channelId,
-      avatar: session.data.user.avatar,
-      username: session.data.user.name,
-      nickname: session.data.member?.name,
+      avatar: session.event.user.avatar,
+      username: session.event.user.name,
+      nickname: session.event.member?.name,
       quoteId,
     }
   }

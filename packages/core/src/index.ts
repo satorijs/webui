@@ -1,4 +1,4 @@
-import { Bot, Context, Dict, Schema, Service, Session, Time, valueMap } from 'koishi'
+import { Bot, Context, Dict, Schema, Service, Session, Time, Universal, valueMap } from 'koishi'
 import { SyncChannel } from './channel'
 import { SyncGuild } from './guild'
 import { Message } from './message'
@@ -111,7 +111,7 @@ class MessageService extends Service {
   }
 
   private async onBotOnline(bot: Bot) {
-    if (bot.status !== 'online' || bot.hidden || !bot.getMessageList || !bot.getGuildList) return
+    if (bot.status !== Universal.Status.ONLINE || bot.hidden || !bot.getMessageList || !bot.getGuildList) return
     const tasks: Promise<any>[] = []
     for await (const guild of bot.getGuildIter()) {
       const key = bot.platform + '/' + guild.id
