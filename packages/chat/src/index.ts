@@ -36,6 +36,8 @@ declare module '@koishijs/console' {
 const logger = new Logger('chat')
 
 class ChatService extends DataService<MessageService.Data> {
+  static inject = ['router', 'messages', 'console']
+
   constructor(ctx: Context, private config: ChatService.Config) {
     super(ctx, 'chat')
     const self = this
@@ -114,8 +116,6 @@ class ChatService extends DataService<MessageService.Data> {
 }
 
 namespace ChatService {
-  export const using = ['messages', 'console']
-
   export interface Config {
     whitelist?: string[]
   }
