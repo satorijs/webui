@@ -1,7 +1,7 @@
-import { Context, Logger, pick, Session, Universal } from 'koishi'
+import { Context, Logger, pick, Session } from 'koishi'
 import { Message } from './message'
 
-const logger = new Logger('message')
+const logger = new Logger('chat')
 
 export enum SyncStatus {
   SYNCING,
@@ -9,21 +9,10 @@ export enum SyncStatus {
   FAILED,
 }
 
-export interface ChannelData {
-  platform: string
-  guildId: string
-  channelId: string
-  assignee?: string
-  guildName?: string
-  channelName?: string
-  avatar?: string
-  initial?: string
-}
-
 export class SyncChannel {
-  public data: ChannelData
+  public data: SyncChannel.Data
   public status = SyncStatus.SYNCING
-  private _buffer: Universal.Message[] = []
+  private _buffer: Message[] = []
   private _initTask: Promise<void>
   private _queueTask = Promise.resolve()
 
@@ -38,14 +27,14 @@ export class SyncChannel {
       return true
     }
 
-    if (session.channelName) {
-      this.data.channelName = session.channelName
+    if (session.event.channel?.name) {
+      this.data.channelName = session.event.channel.name
     }
   }
 
   async queue(session: Session) {
     if (this.accept(session)) return
-    this._buffer.push(session)
+    this._buffer.push(Message.fromSession(session))
     this.ensure(async () => {
       if (this.status === SyncStatus.SYNCING) {
         await this.init(session)
@@ -67,23 +56,46 @@ export class SyncChannel {
     }
   }
 
-  async history(rear: string, front: string) {
+  async syncHistory(rear: string, next?: string) {
     const { channelId, platform, assignee } = this.data
-    logger.debug('from %o to %o', rear, front)
+    logger.debug('[history] platform=%s channel=%s %s->%s', platform, channelId, rear, next)
     const bot = this.ctx.bots[`${platform}:${assignee}`]
-    // eslint-disable-next-line no-labels
-    label: while (true) {
-      const messages = await bot.getMessageList(channelId, front)
-      front = messages[0].messageId
-      for (const message of messages.reverse()) {
-        if (message.messageId === rear) {
+    outer: while (true) {
+      const { data } = await bot.getMessageList(channelId, next)
+      next = data[0].id
+      for (const message of data.reverse()) {
+        if (message.id === rear) {
           // eslint-disable-next-line no-labels
-          break label
+          break outer
         } else {
-          this._buffer.unshift(message)
+          this._buffer.unshift(Message.fromUniversal(message, platform))
         }
       }
     }
+    await this.flush()
+  }
+
+  async adapt(buffer: Message[]) {
+    await this.ctx.database.upsert('chat.message', buffer.filter(message => {
+      return Date.now() - +message.timestamp < this.ctx.messages.config.maxAge
+    }))
+    return buffer
+  }
+
+  async getHistory(count: number, next?: string) {
+    const { channelId, platform, assignee } = this.data
+    logger.debug('[history] platform=%s channel=%s (%s)->%s', platform, channelId, count, next)
+    const bot = this.ctx.bots[`${platform}:${assignee}`]
+    const buffer: Message[] = []
+    while (true) {
+      const { data } = await bot.getMessageList(channelId, next)
+      buffer.push(...data.map(message => Message.fromUniversal(message, platform)))
+      if (data.length === 0 || buffer.length >= count) {
+        break
+      }
+      next = data[0].id
+    }
+    return this.adapt(buffer.reverse())
   }
 
   init(session?: Session) {
@@ -91,6 +103,7 @@ export class SyncChannel {
   }
 
   private async _init(session?: Session) {
+    logger.debug('init channel %s %s %s', this.data.platform, this.data.guildId, this.data.channelId)
     const [[initial], [final]] = await Promise.all([
       this.ctx.database
         .select('chat.message')
@@ -105,30 +118,48 @@ export class SyncChannel {
         .limit(1)
         .execute(),
     ])
-    if (final && session) {
-      await this.history(final.messageId, session.messageId)
+    if (final) {
+      await this.syncHistory(final.messageId, session?.messageId)
     }
     this.status = SyncStatus.SYNCED
     this.data.initial = initial?.messageId
-    this.ctx.emit('chat/channel', this)
   }
 
   async flush() {
     while (this._buffer.length) {
-      const data = this._buffer.splice(0).map((session) => {
-        return Message.adapt(session, this.data.platform, this.data.guildId)
-      })
-      await this.ctx.database.upsert('chat.message', data)
+      const data = await this.adapt(this._buffer.splice(0))
       this.ctx.emit('chat/message', data, this)
     }
   }
 
-  async getMessages(): Promise<Message[]> {
-    return this.ctx.database
+  async getMessages(count: number): Promise<Message[]> {
+    const messages = await this.ctx.database
       .select('chat.message')
       .where(pick(this.data, ['platform', 'channelId']))
       .orderBy('id', 'desc')
-      .limit(100)
+      .limit(count)
       .execute()
+    messages.reverse()
+    if (messages.length < count) {
+      messages.unshift(...await this.getHistory(count - messages.length, messages[0]?.messageId))
+    }
+    return messages
+  }
+
+  toJSON(): SyncChannel.Data {
+    return this.data
+  }
+}
+
+export namespace SyncChannel {
+  export interface Data {
+    platform: string
+    guildId: string
+    channelId: string
+    assignee?: string
+    guildName?: string
+    channelName?: string
+    avatar?: string
+    initial?: string
   }
 }

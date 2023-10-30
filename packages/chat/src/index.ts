@@ -1,7 +1,7 @@
-import { Context, Dict, h, Query, Quester, Schema, valueMap } from 'koishi'
+import { Context, h, Quester, Schema, Universal } from 'koishi'
 import { resolve } from 'path'
-import { DataService } from '@koishijs/plugin-console'
-import { ChannelData, Message } from 'koishi-plugin-messages'
+import { DataService } from '@koishijs/console'
+import MessageService, { Message } from 'koishi-plugin-messages'
 import {} from '@koishijs/assets'
 import internal from 'stream'
 
@@ -19,7 +19,7 @@ interface HistoryPayload {
   id?: string
 }
 
-declare module '@koishijs/plugin-console' {
+declare module '@koishijs/console' {
   namespace Console {
     interface Services {
       chat: ChatService
@@ -29,10 +29,13 @@ declare module '@koishijs/plugin-console' {
   interface Events {
     'chat/send'(this: Client, payload: SendPayload): Promise<void>
     'chat/history'(this: Client, payload: HistoryPayload): Promise<void>
+    'chat/members'(this: Client, platform: string, guildId: string): Promise<Universal.List<Universal.GuildMember>>
   }
 }
 
-class ChatService extends DataService<Dict<ChannelData>> {
+class ChatService extends DataService<MessageService.Data> {
+  static inject = ['router', 'messages', 'console']
+
   constructor(ctx: Context, private config: ChatService.Config) {
     super(ctx, 'chat')
     const self = this
@@ -50,11 +53,10 @@ class ChatService extends DataService<Dict<ChannelData>> {
     }, { authority: 4 })
 
     ctx.console.addListener('chat/history', async function ({ platform, channelId, guildId, id }) {
+      self.logger.debug('fetching history of %s/%s/%s', platform, guildId, channelId)
+      const channel = await ctx.messages.channel(platform, guildId, channelId)
       const key = `${platform}/${guildId}/${channelId}`
-      const sel = ctx.database.select('chat.message')
-      const query: Query<Message> = { platform, channelId, guildId }
-      if (id) query.id = { $lt: id }
-      const messages = await sel.where(query).execute()
+      const messages = await channel.getHistory(50, id)
       for (const message of messages) {
         self.transform(message)
       }
@@ -64,7 +66,12 @@ class ChatService extends DataService<Dict<ChannelData>> {
       })
     }, { authority: 4 })
 
-    ctx.on('chat/channel', (sync) => {
+    ctx.console.addListener('chat/members', async function (platform, guildId) {
+      const guild = ctx.messages.guild(platform, guildId)
+      return guild.getMembers()
+    })
+
+    ctx.on('chat/update', () => {
       this.refresh()
     })
 
@@ -103,13 +110,11 @@ class ChatService extends DataService<Dict<ChannelData>> {
   }
 
   async get() {
-    return valueMap(this.ctx.messages._channels, sync => sync.data)
+    return this.ctx.messages.toJSON()
   }
 }
 
 namespace ChatService {
-  export const using = ['messages', 'console'] as const
-
   export interface Config {
     whitelist?: string[]
   }

@@ -1,5 +1,6 @@
-import { Bot, Context, Dict, Schema, Service, Session, Time } from 'koishi'
+import { Bot, Context, Dict, Schema, Service, Session, Time, Universal, valueMap } from 'koishi'
 import { SyncChannel } from './channel'
+import { SyncGuild } from './guild'
 import { Message } from './message'
 
 export * from './channel'
@@ -15,7 +16,7 @@ declare module 'koishi' {
   }
 
   interface Events {
-    'chat/channel'(channel: SyncChannel): void
+    'chat/update'(): void
     'chat/message'(messages: Message[], channel: SyncChannel): void
   }
 }
@@ -23,14 +24,13 @@ declare module 'koishi' {
 class MessageService extends Service {
   public stopped = false
 
-  constructor(ctx: Context, config: MessageService.Config) {
+  constructor(ctx: Context, public config: MessageService.Config) {
     super(ctx, 'messages', true)
 
     this.ctx.model.extend('chat.message', {
       id: 'string',
       content: 'text',
       platform: 'string',
-      guildId: 'string',
       messageId: 'string',
       userId: 'string',
       timestamp: 'timestamp',
@@ -45,6 +45,7 @@ class MessageService extends Service {
   }
 
   _channels: Dict<SyncChannel> = {}
+  _guilds: Dict<SyncGuild> = {}
 
   async start() {
     // 如果是一个 platform 有多个 bot, bot 状态变化, 频道状态变化待解决
@@ -110,47 +111,57 @@ class MessageService extends Service {
   }
 
   private async onBotOnline(bot: Bot) {
-    if (bot.status !== 'online' || bot.hidden) return
-    const guilds = await bot.getGuildList()
-    await Promise.all(guilds.map(async (guild) => {
-      const channels = await bot.getChannelList(guild.guildId)
-      await Promise.all(channels.map(async (channel) => {
-        const key = bot.platform + '/' + guild.guildId + '/' + channel.channelId
-        this._channels[key] ||= new SyncChannel(this.ctx, bot.platform, guild.guildId, channel.channelId)
-        this._channels[key].data.assignee = bot.selfId
-        this._channels[key].data.guildName = guild.guildName
-        this._channels[key].data.channelName = channel.channelName
-        await this._channels[key].init()
-      }))
-    }))
+    if (bot.status !== Universal.Status.ONLINE || bot.hidden || !bot.getMessageList || !bot.getGuildList) return
+    const tasks: Promise<any>[] = []
+    for await (const guild of bot.getGuildIter()) {
+      const key = bot.platform + '/' + guild.id
+      this._guilds[key] ||= new SyncGuild(bot, guild)
+      tasks.push((async () => {
+        for await (const channel of bot.getChannelIter(guild.id)) {
+          const key = bot.platform + '/' + guild.id + '/' + channel.id
+          this._channels[key] ||= new SyncChannel(this.ctx, bot.platform, guild.id, channel.id)
+          this._channels[key].data.assignee = bot.selfId
+          this._channels[key].data.guildName = guild.name
+          this._channels[key].data.channelName = channel.name
+        }
+      })())
+    }
+    this.ctx.emit('chat/update')
   }
 
   async #onMessage(session: Session) {
     const { platform, guildId, channelId } = session
     if (session.bot.hidden) return
     const key = platform + '/' + guildId + '/' + channelId
-    this._channels[key] ||= new SyncChannel(this.ctx, platform, guildId, channelId)
-    this._channels[key].queue(session)
+    this._channels[key]?.queue(session)
+  }
+
+  guild(platform: string, guildId: string) {
+    const key = platform + '/' + guildId
+    return this._guilds[key]
   }
 
   async channel(platform: string, guildId: string, channelId: string) {
     const key = platform + '/' + guildId + '/' + channelId
     const channel = this._channels[key]
-    if (channel) return channel
-    this._channels[key] = new SyncChannel(this.ctx, platform, guildId, channelId)
-    await this._channels[key].init()
-    return this._channels[key]
+    await channel?.init()
+    return channel
   }
 
-  async getMessages(platform: string, guildId: string, channelId: string) {
-    const key = platform + '/' + guildId + '/' + channelId
-    const channel = this._channels[key]
-    if (!channel) return []
-    return channel.getMessages()
+  toJSON(): MessageService.Data {
+    return {
+      channels: valueMap(this._channels, sync => sync.toJSON()),
+      guilds: valueMap(this._guilds, sync => sync.toJSON()),
+    }
   }
 }
 
 namespace MessageService {
+  export interface Data {
+    channels: Dict<SyncChannel.Data>
+    guilds: Dict<SyncGuild.Data>
+  }
+
   export interface Config {
     maxAge?: number
   }

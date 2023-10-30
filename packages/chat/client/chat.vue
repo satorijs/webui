@@ -1,7 +1,7 @@
 <template>
   <k-layout class="page-chat">
     <template #header>
-      {{ header }}
+      {{ title }}
     </template>
 
     <template #left>
@@ -22,17 +22,31 @@
       </el-scrollbar>
     </template>
 
+    <template #right v-if="members[activeGuild]">
+      <virtual-list class="members" :data="members[activeGuild].data" pinned key-name="user.id">
+        <template #header>
+          <div ref="header" class="header-padding">
+            <div class="header-title">成员列表 ({{ members[activeGuild].next ? '加载中' : members[activeGuild].data.length }})</div>
+          </div>
+        </template>
+        <template #="data">
+          <member-view :data="data"></member-view>
+        </template>
+        <template #footer><div class="footer-padding"></div></template>
+      </virtual-list>
+    </template>
+
     <keep-alive>
-      <template v-if="active" :key="active">
-        <virtual-list :data="messages[active]" pinned v-model:active-key="index" key-name="messageId">
-          <template #header><div class="header-padding"></div></template>
+      <template v-if="activeChannel" :key="activeChannel">
+        <virtual-list class="messages" :data="messages[activeChannel]" pinned v-model:activeChannel-key="index" key-name="messageId">
+          <template #header><div ref="header" class="header-padding"></div></template>
           <template #="data">
             <chat-message :successive="isSuccessive(data, data.index)" :data="data"></chat-message>
           </template>
           <template #footer><div class="footer-padding"></div></template>
         </virtual-list>
         <div class="card-footer">
-          <chat-input v-model="input" @send="handleSend"></chat-input>
+          <chat-input v-model="input" @send="handleSend" placeholder="向频道发送消息"></chat-input>
         </div>
       </template>
       <template v-else>
@@ -46,17 +60,32 @@
 
 <script lang="ts" setup>
 
-import { ChatInput, Dict, send, store, VirtualList } from '@koishijs/client'
+import { ChatInput, Dict, send, store, VirtualList, useContext } from '@koishijs/client'
 import { computed, ref, watch } from 'vue'
-import type { ChannelData, Message } from 'koishi-plugin-messages'
-import { messages } from './utils'
+import { useIntersectionObserver } from '@vueuse/core'
+import type { Message, SyncChannel } from 'koishi-plugin-messages'
+import {} from 'koishi-plugin-chat'
+import { messages, members } from './utils'
+import MemberView from './member.vue'
 import ChatMessage from './message.vue'
 
 const index = ref<string>()
-const active = ref<string>('')
+const activeChannel = ref<string>('')
+const activeGuild = ref<string>('')
 const tree = ref(null)
+const header = ref(null)
 const keyword = ref('')
 const input = ref('')
+
+const ctx = useContext()
+
+ctx.action('chat.message.delete', {
+  action: ({ chat }) => {}, // deleteMessage(chat.message),
+})
+
+ctx.action('chat.message.quote', {
+  action: ({ chat }) => {}, // quote.value = chat.message,
+})
 
 watch(keyword, (val) => {
   tree.value?.filter(val)
@@ -66,41 +95,41 @@ interface Tree {
   id: string
   label: string
   children?: Tree[]
-  data?: ChannelData
+  data?: SyncChannel.Data
 }
 
 const data = computed(() => {
   const data: Tree[] = []
   const guilds: Dict<Tree> = {}
-  for (const key in store.chat) {
+  for (const key in store.chat.channels) {
     const [platform, guildId, channelId] = key.split('/')
     if (guildId === channelId) {
       data.push({
         id: key,
-        label: store.chat[key].channelName || '未知频道',
-        data: store.chat[key],
+        label: store.chat.channels[key].channelName || '未知频道',
+        data: store.chat.channels[key],
       })
     } else {
       let guild = guilds[platform + '/' + guildId]
       if (!guild) {
         data.push(guild = guilds[platform + '/' + guildId] = {
           id: platform + '/' + guildId,
-          label: store.chat[key].guildName || '未知群组',
+          label: store.chat.channels[key].guildName || '未知群组',
           children: [],
         })
       }
       guild.children!.push({
         id: key,
-        label: store.chat[key].channelName || '未知频道',
-        data: store.chat[key],
+        label: store.chat.channels[key].channelName || '未知频道',
+        data: store.chat.channels[key],
       })
     }
   }
   return data
 })
 
-const header = computed(() => {
-  const channel = store.chat[active.value]
+const title = computed(() => {
+  const channel = store.chat.channels[activeChannel.value]
   if (!channel) return
   if (channel.channelId === channel.guildId) {
     return channel.channelName
@@ -115,7 +144,8 @@ function filterNode(value: string, data: Tree) {
 
 function handleClick(tree: Tree) {
   if (tree.children) return
-  active.value = tree.id
+  activeChannel.value = tree.id
+  activeGuild.value = tree.data!.guildId
   const list = messages.value[tree.id] ||= []
   if (list.length <= 100) {
     send('chat/history', {
@@ -129,20 +159,41 @@ function handleClick(tree: Tree) {
 
 function getClass(tree: Tree) {
   const words: string[] = []
-  if (tree.id === active.value) words.push('is-active')
+  if (tree.id === activeChannel.value) words.push('is-activeChannel')
   return words.join(' ')
 }
 
-function isSuccessive({ quoteId, userId, channelId }: Message, index: number) {
-  const prev = (messages.value[active.value] ||= [])[index - 1]
-  return !quoteId && !!prev && prev.userId === userId && prev.channelId === channelId
+function isSuccessive({ quoteId, userId, channelId, username }: Message, index: number) {
+  const prev = (messages.value[activeChannel.value] ||= [])[index - 1]
+  return !quoteId && !!prev
+    && prev.userId === userId
+    && prev.channelId === channelId
+    && prev.username === username
 }
 
 function handleSend(content: string) {
-  if (!active.value) return
-  const [platform, guildId, channelId] = active.value.split('/')
+  if (!activeChannel.value) return
+  const [platform, guildId, channelId] = activeChannel.value.split('/')
   send('chat/send', { content, platform, channelId, guildId })
 }
+
+let task: Promise<void> = null
+
+useIntersectionObserver(header, ([{ isIntersecting }]) => {
+  if (!isIntersecting || task) return
+  task = send('chat/history', {
+    platform: store.chat.channels[activeChannel.value].platform,
+    guildId: store.chat.channels[activeChannel.value].guildId,
+    channelId: store.chat.channels[activeChannel.value].channelId,
+    id: messages.value[activeChannel.value][0]?.id,
+  })
+  task.then(() => task = null)
+})
+
+watch(() => store.chat.channels[activeChannel.value]?.guildId, async (guildId) => {
+  if (!guildId) return
+  members.value[guildId] = await send('chat/members', store.chat.channels[activeChannel.value].platform, guildId)
+})
 
 </script>
 
@@ -162,13 +213,21 @@ function handleSend(content: string) {
     flex-direction: column;
   }
 
-  .header-padding, .footer-padding {
-    padding: 0.25rem 0;
+  .messages {
+    .header-padding, .footer-padding {
+      padding: 0.25rem 0;
+    }
+  }
+
+  .members {
+    .header-padding, .footer-padding {
+      padding: 0.5rem 1rem;
+    }
   }
 
   .card-footer {
     padding: 1rem 1.25rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--k-color-border);
   }
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "koishi-plugin-messages",
   "description": "Message service for Koishi",
-  "version": "0.1.0",
+  "version": "0.2.3",
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
   "files": [
@@ -47,9 +47,9 @@
     }
   },
   "peerDependencies": {
-    "koishi": "^4.12.2"
+    "koishi": "^4.15.3"
   },
   "devDependencies": {
-    "koishi": "^4.12.2"
+    "koishi": "^4.15.3"
   }
 }
