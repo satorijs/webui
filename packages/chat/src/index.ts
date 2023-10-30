@@ -1,4 +1,4 @@
-import { Context, h, Logger, Quester, Schema, Universal } from 'koishi'
+import { Context, h, Quester, Schema, Universal } from 'koishi'
 import { resolve } from 'path'
 import { DataService } from '@koishijs/console'
 import MessageService, { Message } from 'koishi-plugin-messages'
@@ -33,8 +33,6 @@ declare module '@koishijs/console' {
   }
 }
 
-const logger = new Logger('chat')
-
 class ChatService extends DataService<MessageService.Data> {
   static inject = ['router', 'messages', 'console']
 
@@ -55,6 +53,7 @@ class ChatService extends DataService<MessageService.Data> {
     }, { authority: 4 })
 
     ctx.console.addListener('chat/history', async function ({ platform, channelId, guildId, id }) {
+      self.logger.debug('fetching history of %s/%s/%s', platform, guildId, channelId)
       const channel = await ctx.messages.channel(platform, guildId, channelId)
       const key = `${platform}/${guildId}/${channelId}`
       const messages = await channel.getHistory(50, id)
