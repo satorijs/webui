@@ -3,8 +3,12 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "koishi-plugin-messages": ["packages/core/src"],
-      "koishi-plugin-*": ["packages/*/src"],
+      "@satorijs/plugin-*": [
+        "packages/*/src",
+      ],
+      "*": [
+        "packages/*/src",
+      ],
     },
   },
   "files": [],

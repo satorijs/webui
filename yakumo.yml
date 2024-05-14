@@ -1,17 +1,13 @@
-require:
-  - yakumo-esbuild
-  - yakumo-esbuild-yaml
-  - yakumo-mocha
-  - yakumo-publish
-  - yakumo-publish-sync
-  - yakumo-tsc
-  - yakumo-upgrade
-  - yakumo-version
-  - '@koishijs/client/lib/yakumo'
-
-pipeline:
-  build:
-    - tsc
-    - esbuild
-  clean:
-    - tsc --clean
+- name: yakumo
+  config:
+    pipeline:
+      build:
+        - tsc
+        - esbuild
+        - client
+      clean:
+        - tsc --clean
+- name: yakumo-esbuild
+- name: yakumo-mocha
+- name: yakumo-tsc
+- name: '@cordisjs/client/lib'
