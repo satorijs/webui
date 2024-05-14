@@ -1,22 +1,11 @@
 {
-  "compilerOptions": {
-    "rootDir": ".",
-    "target": "es2020",
-    "module": "esnext",
-    "declaration": true,
-    "jsx": "preserve",
-    "noEmit": true,
-    "composite": true,
-    "incremental": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "moduleResolution": "node",
-    "strictBindCallApply": true,
-    "types": [
-      "@koishijs/client/global",
-    ],
-  },
+  "extends": "../../../tsconfig.client",
   "include": [
-    "**/*",
+    ".",
+  ],
+  "references": [
+    {
+      "path": "../tsconfig.json",
+    },
   ],
 }

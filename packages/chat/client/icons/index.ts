@@ -1,4 +1,4 @@
-import { icons } from '@koishijs/client'
-import Comments from './comments.vue'
+import { icons } from '@cordisjs/client'
+import Activity from './activity.vue'
 
-icons.register('activity:comments', Comments)
+icons.register('activity:chat', Activity)

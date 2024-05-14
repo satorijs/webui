@@ -1,64 +1,50 @@
 {
-  "name": "koishi-plugin-chat",
-  "description": "Display and respond to messages for Koishi",
-  "version": "4.0.3",
+  "name": "@satorijs/plugin-chat",
+  "description": "Show plugin dependency graph for Cordis",
+  "version": "0.1.0",
+  "type": "module",
   "main": "lib/index.js",
-  "typings": "lib/index.d.ts",
   "files": [
     "lib",
     "dist"
   ],
   "author": "Shigma <shigma10826@gmail.com>",
-  "license": "AGPL-3.0",
+  "license": "MIT",
+  "scripts": {
+    "lint": "eslint src --ext .ts"
+  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/koishijs/koishi-plugin-messages.git",
+    "url": "git+https://github.com/satorijs/webui.git",
     "directory": "packages/chat"
   },
   "bugs": {
-    "url": "https://github.com/koishijs/koishi-plugin-messages/issues"
+    "url": "https://github.com/satorijs/webui/issues"
   },
-  "homepage": "https://koishi.chat/plugins/console/chat.html",
   "keywords": [
-    "bot",
-    "chatbot",
-    "koishi",
+    "satori",
     "plugin",
+    "webui",
     "chat",
-    "server",
-    "im",
-    "webui"
+    "im"
   ],
-  "koishi": {
-    "category": "console",
-    "public": [
-      "dist"
-    ],
-    "description": {
-      "en": "Receive and send messages using your bot account, just like a univeral chat app",
-      "zh": "使用机器人账号接收和发送消息，就像一个通用的聊天软件一样"
-    },
+  "cordis": {
     "service": {
       "required": [
-        "database",
-        "messages",
-        "console"
+        "satori.database",
+        "webui"
       ]
     }
   },
   "peerDependencies": {
-    "@koishijs/plugin-console": "^5.17.1",
-    "koishi": "^4.15.3",
-    "koishi-plugin-messages": "^0.2.3"
+    "@cordisjs/plugin-webui": "^0.1.1",
+    "@satorijs/core": "^4.0.0",
+    "@satorijs/plugin-database": "^0.1.1"
   },
   "devDependencies": {
-    "@koishijs/assets": "^1.0.3",
-    "@koishijs/client": "^5.17.1",
-    "@koishijs/plugin-console": "^5.17.1",
-    "koishi": "^4.15.3",
-    "koishi-plugin-messages": "^0.2.3"
+    "@cordisjs/client": "^0.1.1"
   },
   "dependencies": {
-    "@koishijs/console": "^5.17.1"
+    "cosmokit": "^1.6.2"
   }
 }
