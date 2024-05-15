@@ -1,8 +1,11 @@
 import { Context, Dict, mapValues, Schema, Universal } from '@satorijs/core'
 import {} from '@cordisjs/plugin-webui'
+import {} from '@cordisjs/plugin-server-proxy'
 import {} from '@satorijs/plugin-database'
 
 export interface Data {
+  proxy?: string
+  logins: Universal.Login[]
   guilds: Dict<Universal.Guild>
 }
 
@@ -22,6 +25,8 @@ export function apply(ctx: Context) {
       import.meta.resolve('../dist/style.css'),
     ],
   }, () => ({
+    proxy: ctx.get('server.proxy')?.path,
+    logins: ctx.bots.map(bot => bot.toJSON()),
     guilds: mapValues(ctx.satori.database._guilds, g => g.data),
   }))
 

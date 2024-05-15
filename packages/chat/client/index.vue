@@ -19,7 +19,7 @@
             <div>{{ guild.id }}</div>
           </div>
         </div>
-      </div>
+      </el-scrollbar>
     </template>
   </k-layout>
 </template>
@@ -27,13 +27,31 @@
 <script lang="ts" setup>
 
 import { onMounted, ref, computed, watch, reactive } from 'vue'
-import { useRpc } from '@cordisjs/client'
+import { useContext, useRpc } from '@cordisjs/client'
 import type { Data } from '../src'
+import { Universal } from '@satorijs/core'
 
 const data = useRpc<Data>()
+const ctx = useContext()
+
+function short(name: string) {
+  return name.slice(0, 2)
+}
+
+function withProxy(url: string) {
+  return (data.value.proxy ? data.value.proxy + '/' : '') + url
+}
+
+async function onClickGuild(guild: Universal.Guild) {
+  console.log(await ctx.get('satori')!.bots[0].getChannelList(guild.id))
+}
 
 </script>
 
 <style lang="scss" scoped>
+
+.el-scrollbar :deep(.el-scrollbar__view) {
+  padding: 1rem 0;
+}
 
 </style>
