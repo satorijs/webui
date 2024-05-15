@@ -1,21 +1,22 @@
 <template>
   <section class="bot-view">
-    <div class="avatar" :style="{ backgroundImage: `url(${data.user!.avatar})` }" @click="$emit('avatar-click')">
-      <el-tooltip :content="statusNames[data.status]" placement="right">
-        <status-light :class="getStatus(data.status)"></status-light>
+    <!-- FIXME avatar may be absent -->
+    <div class="avatar" :style="{ backgroundImage: `url(${withProxy(bot.user!.avatar!)})` }" @click="$emit('avatar-click')">
+      <el-tooltip :content="statusNames[bot.status]" placement="right">
+        <status-light :class="getStatus(bot.status)"></status-light>
       </el-tooltip>
     </div>
     <div class="info">
-      <div class="truncate" :title="data.user!.name"><k-icon name="robot"/>{{ data.user!.name }}</div>
-      <div class="truncate" :title="data.platform"><k-icon name="platform"/>{{ data.platform }}</div>
+      <div class="truncate" :title="bot.user!.name"><k-icon name="robot"/>{{ bot.user!.name }}</div>
+      <div class="truncate" :title="bot.platform"><k-icon name="platform"/>{{ bot.platform }}</div>
       <div class="truncate cur-frequency">
         <span style="margin-right: 8px">
           <k-icon name="arrow-up"/>
-          <span>{{ data.messageSent }}/min</span>
+          <span>{{ bot.messageSent }}/min</span>
         </span>
         <span>
           <k-icon name="arrow-down"/>
-          <span>{{ data.messageReceived }}/min</span>
+          <span>{{ bot.messageReceived }}/min</span>
         </span>
       </div>
     </div>
@@ -25,6 +26,7 @@
 <script lang="ts" setup>
 
 import { Status } from '@satorijs/protocol'
+import { useRpc } from '@cordisjs/client'
 import type { Data } from '../../src'
 import { getStatus } from './utils'
 import StatusLight from './light.vue'
@@ -38,8 +40,14 @@ const statusNames: Record<Status, string> = {
 }
 
 defineProps<{
-  data: Data.Bot
+  bot: Data.Bot
 }>()
+
+const data = useRpc<Data>()
+
+function withProxy(url: string) {
+  return (data.value.proxy ? data.value.proxy + '/' : '') + url
+}
 
 </script>
 

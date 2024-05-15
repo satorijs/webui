@@ -1,6 +1,7 @@
 import { Bot, Context, Dict, Schema, Time, Universal } from '@satorijs/core'
 import {} from '@cordisjs/loader'
 import {} from '@cordisjs/plugin-webui'
+import {} from '@cordisjs/plugin-server-proxy'
 
 declare module '@satorijs/core' {
   interface Bot {
@@ -10,6 +11,7 @@ declare module '@satorijs/core' {
 }
 
 export interface Data {
+  proxy?: string
   bots: Dict<Data.Bot>
 }
 
@@ -77,7 +79,7 @@ export function apply(ctx: Context) {
         messageReceived: bot._messageReceived.get(),
       }
     }
-    return { bots }
+    return { bots, proxy: ctx.get('server.proxy')?.path }
   })
 
   const update = ctx.debounce(() => entry.refresh(), 0)

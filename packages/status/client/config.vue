@@ -4,7 +4,7 @@
       机器人
     </h2>
     <div class="bots-container flex flex-wrap gap-4">
-      <bot-preview v-for="(bot, sid) in bots" :key="sid" :data="bot"/>
+      <bot-preview v-for="(bot, sid) in bots" :key="sid" :bot="bot"/>
     </div>
   </template>
 </template>
@@ -22,7 +22,7 @@ const data = useRpc<Data>()
 
 const bots = computed(() => {
   return Object.values(data.value.bots || {}).filter(bot => {
-    return bot.paths?.includes(ctx.manager.current.value!.path)
+    return bot.paths?.includes(ctx.get('manager')!.current.value!.path)
   })
 })
 

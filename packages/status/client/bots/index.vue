@@ -4,7 +4,7 @@
       <span v-if="!Object.values(data.bots).length" class="el-popper__empty"></span>
       <template v-for="(bot, key) in data.bots" :key="key">
         <bot-preview
-          :data="bot"
+          :bot="bot"
           :class="{ 'has-link': bot.paths?.length }"
           @click="bot.paths && router.push('/plugins/' + bot.paths[0].replace(/\./, '/'))"
         ></bot-preview>

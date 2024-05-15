@@ -13,19 +13,16 @@ declare module '@cordisjs/client' {
 export default (ctx: Context) => {
   ctx.plugin(Bots)
 
-  // FIXME auto inject
-  ctx.inject(['manager'], (ctx) => {
-    ctx.slot({
-      type: 'plugin-details',
-      component: Config,
-      order: -500,
-    })
+  ctx.slot({
+    type: 'plugin-details',
+    component: Config,
+    order: -500,
   })
 
   ctx.settings({
-    id: 'status',
+    id: 'satori',
     schema: Schema.object({
-      mergeThreshold: Schema.number().default(10).description('当机器人的数量超过这个值时将合并显示状态指示灯。'),
-    }).description('机器人设置'),
+      mergeThreshold: Schema.number().default(10).description('当登录号的数量超过这个值时将合并显示状态指示灯。'),
+    }).description('Satori 设置'),
   })
 }

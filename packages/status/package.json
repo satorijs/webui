@@ -34,17 +34,19 @@
         "webui"
       ],
       "optional": [
-        "manager"
+        "manager",
+        "server.proxy"
       ]
     }
   },
   "peerDependencies": {
-    "@cordisjs/plugin-manager": "^0.1.0",
-    "@cordisjs/plugin-webui": "^0.1.1",
+    "@cordisjs/plugin-webui": "^0.1.3",
     "@satorijs/core": "^4.0.0"
   },
   "devDependencies": {
-    "@cordisjs/client": "^0.1.1"
+    "@cordisjs/client": "^0.1.3",
+    "@cordisjs/plugin-manager": "^0.1.0",
+    "@cordisjs/plugin-server-proxy": "^0.2.0"
   },
   "dependencies": {
     "cosmokit": "^1.6.2"
