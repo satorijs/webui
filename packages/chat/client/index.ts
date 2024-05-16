@@ -35,7 +35,6 @@ export default class ChatService extends Service {
         result[key].assignees.push(data.bot.sid!)
       }
     }
-    console.log(1, result, this.logins)
     return result
   })
 
