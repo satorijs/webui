@@ -11,6 +11,12 @@ declare module '@cordisjs/client' {
   interface Context {
     chat: ChatService
   }
+
+  interface ActionContext {
+    'chat.guild': Universal.Guild
+    'chat.channel': Universal.Channel
+    'chat.message': Universal.Message
+  }
 }
 
 interface CachedLogin {
@@ -77,12 +83,27 @@ export default class ChatService extends Service {
         component: Chat,
       })
 
+      ctx.menu('chat.guild', [{
+        id: '.inspect',
+        label: '查看群组信息',
+      }])
+
+      ctx.menu('chat.channel', [{
+        id: '.inspect',
+        label: '查看频道信息',
+      }])
+
       ctx.menu('chat.message', [{
         id: '.delete',
         label: '删除消息',
       }, {
         id: '.quote',
         label: '引用回复',
+      }, {
+        id: '@separator',
+      }, {
+        id: '.inspect',
+        label: '查看频道信息',
       }])
     })
   }

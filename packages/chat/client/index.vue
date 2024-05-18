@@ -1,5 +1,5 @@
 <template>
-  <k-layout>
+  <k-layout :title="channelName || '聊天'">
     <template #left>
       <div class="header flex grow-0 shrink-0 box-border">
         <template v-if="guildKey">
@@ -20,6 +20,7 @@
           class="flex px-4 py-1 items-center
             bg-gray-700 bg-op-0 hover:bg-op-100 transition cursor-pointer"
           @click="setChannel(channel)"
+          @contextmenu.stop="triggerChannel($event, channel)"
         >
           {{ channel.name }}
         </div>
@@ -29,6 +30,7 @@
           class="flex px-4 py-3 gap-x-4 justify-between
             bg-gray-700 bg-op-0 hover:bg-op-100 transition cursor-pointer"
           @click="setGuild(guild)"
+          @contextmenu.stop="triggerGuild($event, guild)"
         >
           <img v-if="guild.avatar" :src="withProxy(guild.avatar)" width="48" height="48" class="b-rd-full"/>
           <div v-else
@@ -47,9 +49,13 @@
 
     <template v-if="channelId">
       <el-scrollbar>
-        <div v-for="message in messages" :key="message.id" class="message">
+        <div v-if="messages?.prev">正在加载更多消息……</div>
+        <div v-for="message in messages?.data" :key="message.id" class="message"
+          @contextmenu.stop="triggerMessage($event, message)">
+          {{ message.id }}
           <message-content :content="message.content!"></message-content>
         </div>
+        <div v-if="messages?.next">正在加载更多消息……</div>
       </el-scrollbar>
       <div class="footer shrink-0">
         <chat-input class="h-6 px-4 py-2" v-model="input" @send="handleSend" placeholder="发送消息"></chat-input>
@@ -59,12 +65,44 @@
       <k-empty>选择一个频道开始聊天</k-empty>
     </template>
   </k-layout>
+
+  <el-dialog
+    title="群组信息"
+    :model-value="!!showGuild"
+    @update:model-value="showGuild = undefined"
+    destroy-on-close>
+    <ul v-if="showGuild">
+      <li>群组 ID: {{ showGuild.id }}</li>
+      <li>群组名称: {{ showGuild.name }}</li>
+    </ul>
+  </el-dialog>
+
+  <el-dialog
+    title="频道信息"
+    :model-value="!!showChannel"
+    @update:model-value="showChannel = undefined"
+    destroy-on-close>
+    <ul v-if="showChannel">
+      <li>频道 ID: {{ showChannel.id }}</li>
+      <li>频道名称: {{ showChannel.name }}</li>
+    </ul>
+  </el-dialog>
+
+  <el-dialog
+    title="消息信息"
+    :model-value="!!showMessage"
+    @update:model-value="showMessage = undefined"
+    destroy-on-close>
+    <ul v-if="showMessage">
+      <li>消息 ID: {{ showMessage.id }}</li>
+    </ul>
+  </el-dialog>
 </template>
 
 <script lang="ts" setup>
 
 import { ref } from 'vue'
-import { useContext, useRpc } from '@cordisjs/client'
+import { useContext, useRpc, useMenu } from '@cordisjs/client'
 import type { Data } from '../src'
 import { Universal } from '@satorijs/core'
 import { ChatInput, MessageContent } from '@satorijs/components-vue'
@@ -75,10 +113,31 @@ const ctx = useContext()
 const platform = ref<string>()
 const guildKey = ref<string>()
 const channelId = ref<string>()
+const channelName = ref<string>()
 const channels = ref<Universal.Channel[]>([])
-const messages = ref<Universal.Message[]>([])
+const messages = ref<Universal.TwoWayList<Universal.Message>>()
 
 const input = ref('')
+
+const showGuild = ref<Universal.Guild>()
+const showChannel = ref<Universal.Channel>()
+const showMessage = ref<Universal.Message>()
+
+const triggerGuild = useMenu('chat.guild')
+const triggerChannel = useMenu('chat.channel')
+const triggerMessage = useMenu('chat.message')
+
+ctx.action('chat.guild.inspect', async ({ chat }) => {
+  showGuild.value = chat.guild
+})
+
+ctx.action('chat.channel.inspect', async ({ chat }) => {
+  showChannel.value = chat.channel
+})
+
+ctx.action('chat.message.inspect', async ({ chat }) => {
+  showMessage.value = chat.message
+})
 
 function short(name: string) {
   return name.slice(0, 2)
@@ -101,11 +160,10 @@ async function setGuild(guild?: Universal.Guild & { platform: string; assignees:
 
 async function setChannel(channel: Universal.Channel) {
   channelId.value = channel.id
-  messages.value = []
-  for await (const message of ctx.bots[ctx.chat.guilds.value[guildKey.value!].assignees[0]].getMessageIter(channel.id)) {
-    if (channelId.value !== channel.id || messages.value.length >= 100) return
-    messages.value.unshift(message)
-  }
+  messages.value = undefined
+  const result = await ctx.bots[ctx.chat.guilds.value[guildKey.value!].assignees[0]].getMessageList(channel.id)
+  result.next = undefined
+  if (channelId.value === channel.id) messages.value = result
 }
 
 function handleSend(content: string) {
