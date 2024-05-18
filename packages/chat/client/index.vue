@@ -1,7 +1,7 @@
 <template>
   <k-layout :title="channelName || '聊天'">
     <template #left>
-      <div class="header flex grow-0 shrink-0 box-border">
+      <div class="layout-left-header flex grow-0 shrink-0 box-border">
         <template v-if="guildKey">
           <div class="w-3rem h-full items-center justify-center flex
             bg-gray-700 bg-op-0 hover:bg-op-100 transition cursor-pointer"
@@ -32,13 +32,7 @@
           @click="setGuild(guild)"
           @contextmenu.stop="triggerGuild($event, guild)"
         >
-          <img v-if="guild.avatar" :src="withProxy(guild.avatar)" width="48" height="48" class="b-rd-full"/>
-          <div v-else
-            class="w-48px h-48px b-rd-full bg-gray-500
-              font-bolder text-18px
-              flex justify-center items-center">
-            {{ short(guild.name!) }}
-          </div>
+          <avatar :src="guild.avatar" :name="guild.name" class="w-48px h-48px"/>
           <div class="flex flex-col flex-1">
             <div>{{ guild.name }}</div>
             <div>{{ guild.id }}</div>
@@ -50,10 +44,28 @@
     <template v-if="channelId">
       <el-scrollbar>
         <div v-if="messages?.prev">正在加载更多消息……</div>
-        <div v-for="message in messages?.data" :key="message.id" class="message"
+        <div v-for="(message, index) in messages?.data" :key="message.id"
+          class="relative px-4 py-0 break-words
+            bg-gray-700 bg-op-0 hover:bg-op-100 transition"
+          :class="{ 'mt-2': !isSuccessive(index) }"
           @contextmenu.stop="triggerMessage($event, message)">
-          {{ message.id }}
-          <message-content :content="message.content!"></message-content>
+          <div class="quote" v-if="message.quote">
+            {{ message.quote }}
+          </div>
+          <template v-if="isSuccessive(index)">
+            <span>{{ formatTime(new Date(message?.createdAt!)) }}</span>
+          </template>
+          <template v-else>
+            <avatar :src="message.user?.avatar" :name="message.user?.name"
+              class="w-10 h-10 absolute mt-1.5"/>
+            <div class="header">
+              <span class="font-bold lh-relaxed ml-14">{{ message.user?.name }}</span>
+              <span>{{ formatDateTime(new Date(message?.createdAt!)) }}</span>
+            </div>
+          </template>
+          <message-content :content="message.content!"
+            class="ml-14 lh-relaxed"
+          ></message-content>
         </div>
         <div v-if="messages?.next">正在加载更多消息……</div>
       </el-scrollbar>
@@ -106,8 +118,8 @@ import { useContext, useRpc, useMenu } from '@cordisjs/client'
 import type { Data } from '../src'
 import { Universal } from '@satorijs/core'
 import { ChatInput, MessageContent } from '@satorijs/components-vue'
+import Avatar from './avatar.vue'
 
-const data = useRpc<Data>()
 const ctx = useContext()
 
 const platform = ref<string>()
@@ -139,12 +151,10 @@ ctx.action('chat.message.inspect', async ({ chat }) => {
   showMessage.value = chat.message
 })
 
-function short(name: string) {
-  return name.slice(0, 2)
-}
-
-function withProxy(url: string) {
-  return (data.value.proxy ? data.value.proxy + '/' : '') + url
+function isSuccessive(index: number) {
+  const curr = messages.value?.data[index]
+  const prev = messages.value?.data[index - 1]
+  return curr && prev && !curr.quote && curr.user?.id === prev.user?.id
 }
 
 async function setGuild(guild?: Universal.Guild & { platform: string; assignees: string[] }) {
@@ -170,11 +180,26 @@ function handleSend(content: string) {
   return ctx.bots[ctx.chat.guilds.value[guildKey.value!].assignees[0]].sendMessage(channelId.value!, content)
 }
 
+function formatTime(date: Date) {
+  if (Number.isNaN(+date)) return ''
+  return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`
+}
+
+function formatDateTime(date: Date) {
+  if (Number.isNaN(+date)) return ''
+  const now = new Date()
+  const time = formatTime(date)
+  if (date.toLocaleDateString() === now.toLocaleDateString()) {
+    return time
+  }
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()} ${time}`
+}
+
 </script>
 
 <style lang="scss" scoped>
 
-.header {
+.layout-left-header {
   height: var(--header-height);
   border-bottom: var(--k-color-divider-dark) 1px solid;
 }
