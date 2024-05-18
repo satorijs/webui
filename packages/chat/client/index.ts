@@ -103,7 +103,7 @@ export default class ChatService extends Service {
         id: '@separator',
       }, {
         id: '.inspect',
-        label: '查看频道信息',
+        label: '查看消息信息',
       }])
     })
   }

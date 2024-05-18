@@ -43,9 +43,13 @@
 
     <template v-if="channelId">
       <el-scrollbar>
-        <div v-if="messages?.prev">正在加载更多消息……</div>
+        <div ref="header" v-if="messages?.prev"
+          class="items-center flex justify-center py-2
+          bg-gray-700 bg-op-0 hover:bg-op-100 transition cursor-pointer"
+          @click="appendHeader"
+        >正在加载更多消息……</div>
         <div v-for="(message, index) in messages?.data" :key="message.id"
-          class="relative px-4 py-0 break-words
+          class="relative px-4 py-0 break-words last:mb-2
             bg-gray-700 bg-op-0 hover:bg-op-100 transition"
           :class="{ 'mt-2': !isSuccessive(index) }"
           @contextmenu.stop="triggerMessage($event, message)">
@@ -67,7 +71,11 @@
             class="ml-14 lh-relaxed"
           ></message-content>
         </div>
-        <div v-if="messages?.next">正在加载更多消息……</div>
+        <div ref="footer" v-if="messages?.next"
+          class="items-center flex justify-center py-2
+          bg-gray-700 bg-op-0 hover:bg-op-100 transition cursor-pointer"
+          @click="appendFooter"
+        >正在加载更多消息……</div>
       </el-scrollbar>
       <div class="footer shrink-0">
         <chat-input class="h-6 px-4 py-2" v-model="input" @send="handleSend" placeholder="发送消息"></chat-input>
@@ -114,8 +122,8 @@
 <script lang="ts" setup>
 
 import { ref } from 'vue'
-import { useContext, useRpc, useMenu } from '@cordisjs/client'
-import type { Data } from '../src'
+import { useContext, useMenu } from '@cordisjs/client'
+import { useIntersectionObserver } from '@vueuse/core'
 import { Universal } from '@satorijs/core'
 import { ChatInput, MessageContent } from '@satorijs/components-vue'
 import Avatar from './avatar.vue'
@@ -130,6 +138,8 @@ const channels = ref<Universal.Channel[]>([])
 const messages = ref<Universal.TwoWayList<Universal.Message>>()
 
 const input = ref('')
+const header = ref<HTMLDivElement>()
+const footer = ref<HTMLDivElement>()
 
 const showGuild = ref<Universal.Guild>()
 const showChannel = ref<Universal.Channel>()
@@ -168,16 +178,47 @@ async function setGuild(guild?: Universal.Guild & { platform: string; assignees:
   }
 }
 
+function useBot() {
+  return ctx.bots[ctx.chat.guilds.value[guildKey.value!].assignees[0]]
+}
+
 async function setChannel(channel: Universal.Channel) {
   channelId.value = channel.id
   messages.value = undefined
-  const result = await ctx.bots[ctx.chat.guilds.value[guildKey.value!].assignees[0]].getMessageList(channel.id)
+  const result = await useBot().getMessageList(channel.id)
   result.next = undefined
-  if (channelId.value === channel.id) messages.value = result
+  if (channelId.value !== channel.id) return
+  messages.value = result
+}
+
+let headerTask: Promise<void> | undefined
+
+function appendHeader() {
+  if (headerTask) return
+  const id = channelId.value!
+  headerTask = useBot().getMessageList(id, messages.value!.prev, 'before').then((result) => {
+    headerTask = undefined
+    if (channelId.value !== id) return
+    messages.value!.data.unshift(...result.data)
+    messages.value!.prev = result.prev
+  })
+}
+
+let footerTask: Promise<void> | undefined
+
+function appendFooter() {
+  if (footerTask) return
+  const id = channelId.value!
+  footerTask = useBot().getMessageList(id, messages.value!.next, 'after').then((result) => {
+    footerTask = undefined
+    if (channelId.value !== id) return
+    messages.value!.data.push(...result.data)
+    messages.value!.next = result.next
+  })
 }
 
 function handleSend(content: string) {
-  return ctx.bots[ctx.chat.guilds.value[guildKey.value!].assignees[0]].sendMessage(channelId.value!, content)
+  return useBot().sendMessage(channelId.value!, content)
 }
 
 function formatTime(date: Date) {
