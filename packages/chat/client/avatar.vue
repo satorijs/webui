@@ -2,7 +2,7 @@
   <img v-if="src" :src="withProxy(src)" class="b-rd-full select-none"/>
   <div v-else
     class="b-rd-full bg-gray-500
-      font-bolder text-18px select-none
+      font-bold text-18px select-none
       flex justify-center items-center">
     {{ name && short(name) }}
   </div>

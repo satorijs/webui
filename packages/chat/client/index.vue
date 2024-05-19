@@ -16,14 +16,12 @@
       </div>
 
       <el-scrollbar v-if="guildKey">
-        <div v-for="(channel, index) in channels" :key="channel.id"
-          class="flex px-4 py-1 items-center
-            bg-gray-700 bg-op-0 hover:bg-op-100 transition cursor-pointer"
-          @click="setChannel(channel)"
-          @contextmenu.stop="triggerChannel($event, channel)"
-        >
-          {{ channel.name }}
-        </div>
+        <el-tree :data="channels" default-expand-all
+          @node-click="($event, node) => setChannel(node.data.channel)"
+          @node-contextmenu="($event, node) => triggerChannel($event, node.channel)"
+          #="{ node }">
+          {{ node.data.channel.name }}
+        </el-tree>
       </el-scrollbar>
       <el-scrollbar v-else>
         <div v-for="(guild, key) in ctx.chat.guilds.value" :key="key"
@@ -49,22 +47,26 @@
           @click="appendHeader"
         >正在加载更多消息……</div>
         <div v-for="(message, index) in messages?.data" :key="message.id"
-          class="relative px-4 py-0 break-words last:mb-2
+          class="message relative px-4 py-0 break-words last:mb-2
             bg-gray-700 bg-op-0 hover:bg-op-100 transition"
-          :class="{ 'mt-2': !isSuccessive(index) }"
+          :class="{ successive: isSuccessive(index) }"
           @contextmenu.stop="triggerMessage($event, message)">
           <div class="quote" v-if="message.quote">
             {{ message.quote }}
           </div>
           <template v-if="isSuccessive(index)">
-            <span>{{ formatTime(new Date(message?.createdAt!)) }}</span>
+            <span
+              class="left-timestamp text-gray-4 text-xs
+              absolute top-0 left-0 h-full w-18
+                inline-flex items-center justify-center"
+            >{{ formatTime(new Date(message?.createdAt!)) }}</span>
           </template>
           <template v-else>
             <avatar :src="message.user?.avatar" :name="message.user?.name"
               class="w-10 h-10 absolute mt-1.5"/>
             <div class="header">
               <span class="font-bold lh-relaxed ml-14">{{ message.user?.name }}</span>
-              <span>{{ formatDateTime(new Date(message?.createdAt!)) }}</span>
+              <span class="ml-2 text-gray-4 text-xs">{{ formatDateTime(new Date(message?.createdAt!)) }}</span>
             </div>
           </template>
           <message-content :content="message.content!"
@@ -127,14 +129,20 @@ import { useIntersectionObserver } from '@vueuse/core'
 import { Universal } from '@satorijs/core'
 import { ChatInput, MessageContent } from '@satorijs/components-vue'
 import Avatar from './avatar.vue'
+import { Dict } from 'cosmokit'
 
 const ctx = useContext()
+
+interface ChannelNode {
+  channel: Universal.Channel
+  children?: ChannelNode[]
+}
 
 const platform = ref<string>()
 const guildKey = ref<string>()
 const channelId = ref<string>()
 const channelName = ref<string>()
-const channels = ref<Universal.Channel[]>([])
+const channels = ref<ChannelNode[]>([])
 const messages = ref<Universal.TwoWayList<Universal.Message>>()
 
 const input = ref('')
@@ -167,15 +175,28 @@ function isSuccessive(index: number) {
   return curr && prev && !curr.quote && curr.user?.id === prev.user?.id
 }
 
+function sortChildren(nodes: ChannelNode[]) {
+  nodes.sort((a, b) => a.channel.position! - b.channel.position!)
+  for (const node of nodes) {
+    if (node.children) sortChildren(node.children)
+  }
+}
+
 async function setGuild(guild?: Universal.Guild & { platform: string; assignees: string[] }) {
   channels.value = []
   channelId.value = undefined
   if (!guild) return guildKey.value = undefined
   platform.value = guild.platform
   guildKey.value = `${guild.platform}/${guild.id}`
+  const nodes: Dict<ChannelNode> = {}
   for await (const channel of ctx.bots[guild.assignees[0]].getChannelIter(guild.id)) {
-    channels.value.push(channel)
+    (nodes[channel.id] ??= {} as any).channel = channel
+    if (channel.parentId) {
+      ((nodes[channel.parentId] ??= {} as any).children ??= []).push(nodes[channel.id])
+    }
   }
+  channels.value = Object.values(nodes).filter((node) => !node.channel.parentId)
+  sortChildren(channels.value)
 }
 
 function useBot() {
@@ -252,6 +273,19 @@ function formatDateTime(date: Date) {
 
 .footer {
   border-top: var(--k-color-divider-dark) 1px solid;
+}
+
+.left-timestamp {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.message.successive:hover .left-timestamp {
+  opacity: 1;
+}
+
+.message:not(.successive) {
+  margin-top: 0.5rem;
 }
 
 </style>
