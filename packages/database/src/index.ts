@@ -5,15 +5,15 @@ import { SyncGuild } from './guild'
 
 export * from './types'
 
-declare module '@satorijs/core' {
-  interface Satori {
-    database: SatoriDatabase
+declare module 'cordis' {
+  interface Context {
+    'satori.database': SatoriDatabase
   }
 }
 
-declare module 'cordis' {
-  interface Events {
-    'satori/database/update'(): void
+declare module '@satorijs/core' {
+  interface Satori {
+    database: SatoriDatabase
   }
 }
 
@@ -30,12 +30,30 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
   constructor(ctx: Context, public config: SatoriDatabase.Config) {
     super(ctx, 'satori.database', true)
 
-    // TODO bot mixin
-    // ctx.mixin('satori.database', {
-    //   'createMessage': 'bot.createMessage',
-    //   'getMessage': 'bot.getMessage',
-    //   'getMessageList': 'bot.getMessageList',
+    const self = this
+
+    // ctx.accessor('bot.getGuildList', {
+    //   get: () => async function (this: Bot) {
+    //     const data = await ctx.database.get('satori.guild', {
+    //       logins: {
+    //         $some: {
+    //           platform: this.platform,
+    //           'user.id': this.user.id,
+    //         },
+    //       },
+    //     })
+    //     if (data.length) return data
+    //     return data
+    //   },
     // })
+
+    ctx.accessor('bot.getMessageList', {
+      get: () => async function (this: Bot, channelId: string, id: string, dir?: Universal.Direction, limit?: number, order?: Universal.Order) {
+        const key = this.platform + '/' + channelId
+        self._channels[key] ||= new SyncChannel(ctx, this, channelId)
+        return await self._channels[key].getMessageList(id, dir, limit, order)
+      },
+    })
 
     ctx.model.extend('satori.message', {
       'uid': 'unsigned(8)',
@@ -55,6 +73,10 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
     }, {
       primary: 'uid',
       autoInc: true,
+      unique: [
+        ['id', 'channel.id', 'platform'],
+        ['sid', 'channel.id', 'platform'],
+      ],
     })
 
     ctx.model.extend('satori.user', {
@@ -71,6 +93,7 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
       'id': 'char(255)',
       'platform': 'char(255)',
       'name': 'char(255)',
+      'avatar': 'char(255)',
     }, {
       primary: ['id', 'platform'],
     })
@@ -82,14 +105,26 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
     }, {
       primary: ['id', 'platform'],
     })
+
+    ctx.model.extend('satori.login', {
+      'platform': 'char(255)',
+      'user.id': 'char(255)',
+      'guilds': {
+        type: 'manyToMany',
+        table: 'satori.guild',
+        target: 'logins',
+      },
+    }, {
+      primary: ['platform', 'user.id'],
+    })
   }
 
   async start() {
     this.ctx.on('message', (session) => {
-      const { platform, guildId, channelId } = session
+      const { platform, channelId } = session
       if (session.bot.hidden) return
-      const key = platform + '/' + guildId + '/' + channelId
-      this._channels[key] ||= new SyncChannel(this.ctx, session.bot, session.guildId, session.event.channel!)
+      const key = platform + '/' + channelId
+      this._channels[key] ||= new SyncChannel(this.ctx, session.bot, session.channelId)
       if (this._channels[key].bot === session.bot) {
         this._channels[key].queue(session)
       }
@@ -163,9 +198,17 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
 }
 
 namespace SatoriDatabase {
-  export interface Config {}
+  export interface Config {
+    message: {
+      defaultLimit: number
+    }
+  }
 
-  export const Config: Schema<Config> = Schema.object({})
+  export const Config: Schema<Config> = Schema.object({
+    message: Schema.object({
+      defaultLimit: Schema.natural().default(50),
+    }),
+  })
 }
 
 export default SatoriDatabase

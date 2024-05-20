@@ -3,10 +3,11 @@ import { Span } from './span'
 
 declare module 'minato' {
   interface Tables {
+    'satori.login': Login
     'satori.message': Message
-    'satori.user': Universal.User & { platform: string }
-    'satori.guild': Universal.Guild & { platform: string }
-    'satori.channel': Universal.Channel & { platform: string }
+    'satori.user': User
+    'satori.guild': Guild
+    'satori.channel': Channel
   }
 }
 
@@ -14,6 +15,24 @@ declare module '@satorijs/protocol' {
   interface Message {
     sid?: bigint
   }
+}
+
+export interface Login extends Universal.Login {
+  guilds: Guild[]
+}
+
+export interface User extends Universal.User {
+  platform: string
+  channel_id?: string
+}
+
+export interface Guild extends Universal.Guild {
+  platform: string
+  logins: Login[]
+}
+
+export interface Channel extends Universal.Channel {
+  platform: string
 }
 
 export interface Message extends Universal.Message {
@@ -42,14 +61,14 @@ export namespace Message {
     }
   }
 
-  export const from = (message: Universal.Message, platform: string, dir?: Span.Direction, ref?: bigint) => ({
+  export const from = (message: Universal.Message, platform: string, payload: Omit<Universal.Message, 'id'> = message, dir?: Span.Direction, ref?: bigint) => ({
     platform,
     id: message.id,
     sid: sequence(BigInt(message.createdAt!), dir, ref),
     content: message.content,
-    channel: { id: message.channel?.id },
-    user: { id: message.user?.id },
-    guild: { id: message.guild?.id },
+    channel: { id: payload.channel?.id },
+    user: { id: payload.user?.id },
+    guild: { id: payload.guild?.id },
     quote: { id: message.quote?.id },
     createdAt: message.createdAt,
     updatedAt: message.updatedAt,

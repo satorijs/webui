@@ -51,7 +51,7 @@
             bg-gray-700 bg-op-0 hover:bg-op-100 transition"
           :class="{ successive: isSuccessive(index) }"
           @contextmenu.stop="triggerMessage($event, message)">
-          <div class="quote" v-if="message.quote">
+          <div class="quote" v-if="message.quote?.id">
             {{ message.quote }}
           </div>
           <template v-if="isSuccessive(index)">

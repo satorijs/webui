@@ -1,16 +1,15 @@
-import { Bot, Context, Logger, Session, Universal } from '@satorijs/core'
+import { Bot, Context, Logger, Session, Universal, omit } from '@satorijs/core'
 import { Message } from './types'
-import { Span } from './span'
+import { MessageLike, Span } from './span'
 
-const logger = new Logger('sync')
+const logger = new Logger('message')
+logger.level = 3
 
 export enum SyncStatus {
   INIT,
   READY,
   FAILED,
 }
-
-type MessageLike = Message | { sid: bigint }
 
 type LocateResult = [Span, MessageLike]
 
@@ -28,13 +27,12 @@ export class SyncChannel {
 
   private _initTask?: Promise<void>
 
-  constructor(public ctx: Context, public bot: Bot, public guildId: string, public data: Universal.Channel) {
-    this._query = { platform: bot.platform, 'channel.id': data.id }
-    bot.ctx.emit('satori/database/update')
+  constructor(public ctx: Context, public bot: Bot, public channelId: string) {
+    this._query = { platform: bot.platform, 'channel.id': channelId }
   }
 
   private async init() {
-    logger.debug('init channel %s %s %s', this.bot.platform, this.guildId, this.data.id)
+    logger.debug('init channel %s %s', this.bot.platform, this.channelId)
     const data = await this.ctx.database
       .select('satori.message')
       .where({
@@ -76,10 +74,11 @@ export class SyncChannel {
     return left
   }
 
-  insert(data: Message[], options: Pick<Span, 'prev' | 'next' | 'prevTemp' | 'nextTemp'> = {}, forced: Span.PrevNext<boolean> = {}) {
+  insert(data: Message[], options: Pick<Span, 'prev' | 'next' | 'prevTemp' | 'nextTemp'> = {}) {
     if (!data.length && !options.prev && !options.next) {
       throw new Error('unexpected empty span')
     }
+    console.log('insert', data.length)
     const back: Span.Endpoint = [data.at(0)!.sid, data.at(0)!.id]
     const front: Span.Endpoint = [data.at(-1)!.sid, data.at(-1)!.id]
     const span = new Span(this, Span.Type.LOCAL, front, back, data)
@@ -91,82 +90,100 @@ export class SyncChannel {
     span.nextTemp = options.nextTemp
     span.link('after', options.next)
     span.merge('after')
-    span.flush(forced)
+    console.log('inserted', span.back[0], span.front[0], this._spans.length)
+    span.flush()
     return span
   }
 
   async queue(session: Session) {
     const prev = this.hasLatest ? this._spans[0] : undefined
-    const message = Message.from(session.event.message!, session.platform, 'after', prev?.front[0])
+    const message = Message.from(session.event.message!, session.platform, session.event, 'after', prev?.front[0])
     this.hasLatest = true
-    this.insert([message], { prev }, { prev: true, next: true })
+    this.insert([message], { prev })
   }
 
-  getMessageList(id: string, dir?: Universal.Direction, limit?: number) {
-    return this.bot.getMessageList(this.data.id, id, dir, limit, 'asc')
-  }
-
-  // TODO handle default limit
-  async list(id: string, dir: Universal.Direction, limit: number) {
+  async getMessageList(id?: string, dir: Universal.Direction = 'before', limit?: number, order: Universal.Order = 'asc') {
     await (this._initTask ||= this.init())
-    const result = await this.locate(id, dir, limit)
-    if (!result) return []
-    const [span, message] = result
+    logger.debug('message.list %s:%s', this.bot.platform, this.channelId, id, dir, limit, order)
+    const location = await this.locate(id, dir, limit)
+    if (!location) return { data: [] }
+    const [span, message] = location
+    logger.debug('location %s in [%s, %s]', message.sid, span.back[0], span.front[0])
+    limit ??= this.ctx.get('satori.database')!.config.message.defaultLimit
     if (dir === 'around') limit = Math.floor(limit / 2) + 1
-    const beforeTask = dir === 'after' ? Promise.resolve([]) : this.extend(span, message, limit, 'before')
-    const afterTask = dir === 'before' ? Promise.resolve([]) : this.extend(span, message, limit, 'after')
+    const beforeTask = dir === 'after' ? Promise.resolve([]) : this.extend(span, message, 'before', limit, id ? 1 : 0)
+    const afterTask = dir === 'before' ? Promise.resolve([]) : this.extend(span, message, 'after', limit, 1)
     const [before, after] = await Promise.all([beforeTask, afterTask])
-    if (dir === 'after') return after
-    if (dir === 'before') return before
-    return [...before.slice(0, -1), message, ...after.slice(1)]
+    let result: Universal.TwoWayList<Universal.Message>
+    // TODO: support hasEarliest and hasLatest
+    if (dir === 'before') {
+      result = { data: before, next: before.at(0)?.id, prev: before.at(0)?.id }
+    } else if (dir === 'after') {
+      result = { data: after, next: after.at(-1)?.id, prev: after.at(-1)?.id }
+    } else {
+      const data = [...before, message as Message, ...after]
+      result = { data, next: data.at(-1)?.id, prev: data.at(0)?.id }
+    }
+    result.data = result.data.map((message) => omit(message, ['sid']))
+    if (order === 'desc') result.data.reverse()
+    return result
   }
 
-  collect(result: Universal.TwoWayList<Universal.Message>, dir: Span.Direction, data: Message[], index?: number): CollectResult {
+  collect(result: Universal.TwoWayList<Universal.Message>, dir: Span.Direction, data: Message[], index: number): CollectResult {
     const w = Span.words[dir]
-    index ??= dir === 'after' ? -1 : result.data.length
-    for (let i = index + w.inc; i >= 0 && i < result.data.length; i += w.inc) {
+    for (let i = index + w.unit; i >= 0 && i < result.data.length; i += w.unit) {
       const span = this._spans.find(span => span[w.back][1] === result.data[i].id)
       if (span) {
-        const data = w.slice(result.data, i + w.inc)
+        const data = w.slice(result.data, i + w.unit)
         if (data.length) {
           span[w.temp] = { [w.next]: result[w.next], data }
         }
         return { span }
       }
-      data[w.push](Message.from(result.data[i], this.bot.platform, dir, data.at(w.last)?.sid))
+      data[w.push](Message.from(result.data[i], this.bot.platform, undefined, dir, data.at(w.last)?.sid))
     }
     return { temp: { data: [], [w.next]: result[w.next] } }
   }
 
-  private async locate(id: string, dir: Universal.Direction, limit?: number): Promise<LocateResult | undefined> {
-    // condition 1: message in memory
-    for (const span of this._spans) {
-      const message = span.data?.find(message => message.id === id)
-      if (message) return [span, message]
-    }
+  private async locate(id?: string, dir: Universal.Direction = 'before', limit?: number): Promise<LocateResult | undefined> {
+    if (id) {
+      // condition 1: message in memory
+      for (const span of this._spans) {
+        const message = span.data?.find(message => message.id === id)
+        if (message) return [span, message]
+      }
 
-    // condition 2: message in database
-    const data = await this.ctx.database
-      .select('satori.message')
-      .where({ ...this._query, id })
-      .execute()
-    if (data[0]) {
-      const { sid } = data[0]
-      const span = this._spans[this.binarySearch(sid)]
-      if (!span || span.back[0] > sid || span.front[0] < sid) throw new Error('malformed sync span')
-      return [span, data[0]]
+      // condition 2: message in database
+      const data = await this.ctx.database
+        .select('satori.message')
+        .where({ ...this._query, id })
+        .execute()
+      if (data[0]) {
+        const { sid } = data[0]
+        const span = this._spans[this.binarySearch(sid)]
+        if (!span || span.back[0] > sid || span.front[0] < sid) throw new Error('malformed sync span')
+        return [span, data[0]]
+      }
+    } else if (this.hasLatest) {
+      return [this._spans[0], { sid: this._spans[0].front[0] }]
     }
 
     // condition 3: message not cached, request from adapter
     let span: Span
     let message: MessageLike
     let index: number | undefined
-    const result = await this.getMessageList(id, dir, limit)
+    const data: Message[] = []
+    const result = await this.bot.self.getMessageList(this.channelId, id, dir, limit)
+    console.log('raw:', result.data.length)
     if (dir === 'around') {
       index = result.data.findIndex(item => item.id === id)
       if (index === -1) throw new Error('malformed message list')
       message = Message.from(result.data[index], this.bot.platform)
       data.push(message as Message)
+    } else if (dir === 'before') {
+      index = result.data.length
+    } else {
+      index = -1
     }
 
     const { span: prev, temp: prevTemp } = this.collect(result, 'before', data, index)
@@ -191,12 +208,12 @@ export class SyncChannel {
     return [span, message!]
   }
 
-  private async extend(span: Span, message: MessageLike, limit: number, dir: Span.Direction) {
+  private async extend(span: Span, message: MessageLike, dir: Span.Direction, limit: number, exclusive: number) {
     const buffer: Message[] = []
     const w = Span.words[dir]
 
     while (true) {
-      const data = await span.collect(message, dir, limit - buffer.length)
+      const data = await span.collect(message, dir, limit - buffer.length, exclusive)
       buffer[w.push](...data)
       if (buffer.length >= limit) {
         delete span[w.temp]
@@ -206,10 +223,11 @@ export class SyncChannel {
       let result = span[w.temp]
       if (result) {
         let i = dir === 'before' ? result.data.length - 1 : 0
-        for (; i >= 0 && i < result.data.length; i += w.inc) {
+        for (; i >= 0 && i < result.data.length; i += w.unit) {
           if (!data.some(item => item.id === result!.data[i].id)) break
         }
         result.data = w.slice(result.data, i)
+        // inherit next?
         if (!result.data.length) result = undefined
         delete span[w.temp]
       }
@@ -219,6 +237,7 @@ export class SyncChannel {
 
       span = next
       message = { sid: span[w.back][0] }
+      exclusive = 0
     }
 
     if (dir === 'before') {

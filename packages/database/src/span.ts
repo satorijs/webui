@@ -3,6 +3,8 @@ import { $, Update } from 'minato'
 import { Message } from './types'
 import { SyncChannel } from './channel'
 
+export type MessageLike = Message | { sid: bigint }
+
 export class Span {
   prev?: Span
   prevTask?: Promise<Span | undefined>
@@ -39,10 +41,11 @@ export class Span {
     return true
   }
 
-  async flush(forced: Span.PrevNext<boolean> = {}) {
+  async flush() {
     if (this.type !== Span.Type.LOCAL) throw new Error('expect local span')
-    if (!forced.prev && !this.prev && !(this === this.channel._spans.at(0) && this.channel.hasEarliest)) return
-    if (!forced.next && !this.next && !(this === this.channel._spans.at(-1) && this.channel.hasLatest)) return
+    console.log('flush', !!this.prev, !!this.prevTemp, !!this.next, !!this.nextTemp)
+    if (!this.prev && this.prevTemp) return
+    if (!this.next && this.nextTemp) return
     await Promise.all([this.prev?.syncTask, this.next?.syncTask])
     if (!this.channel._spans.includes(this)) return
     return this.syncTask ||= this.sync()
@@ -59,7 +62,7 @@ export class Span {
           flag: $.and(row.flag, $.not(Message.Flag.BACK)),
         })
       } else {
-        data.at(-1)!.flag |= Message.Flag.FRONT
+        (data.at(-1)!.flag as number) |= Message.Flag.FRONT
       }
       if (this.prev?.type === Span.Type.REMOTE) {
         data.unshift({
@@ -68,8 +71,9 @@ export class Span {
           flag: $.and(row.flag, $.not(Message.Flag.FRONT)),
         })
       } else {
-        data.at(0)!.flag |= Message.Flag.BACK
+        (data.at(0)!.flag as number) |= Message.Flag.BACK
       }
+      console.log(data.at(0), data.at(-1))
       return data
     }, ['sid', 'channel.id', 'platform'])
     this.type = Span.Type.REMOTE
@@ -78,36 +82,43 @@ export class Span {
     this.merge('before')
   }
 
-  async collect(message: Message | { sid: bigint }, dir: Span.Direction, limit: number) {
+  async collect(message: MessageLike, dir: Span.Direction, limit: number, exclusive: number) {
     const w = Span.words[dir]
+    if (this[w.front][0] === message.sid) {
+      if (exclusive) return []
+      if ('id' in message) return [message]
+    }
+
     if (this.data) {
       const index = this.data.findIndex(item => item.sid === message.sid)
-      return w.slice(this.data, index)
-    } else if ('id' in message && this[w.front][0] === message.sid) {
-      return [message]
-    } else {
-      const data = await this.channel.ctx.database
-        .select('satori.message')
-        .where({
-          ...this.channel._query,
-          sid: {
-            [w.$gte]: message.sid,
-            [w.$lte]: this[w.front][0],
-          },
-        })
-        .orderBy('sid', w.order)
-        .limit(limit)
-        .execute()
-      if (dir === 'before') data.reverse()
-      return data
+      console.log('index', this.data.length, index, exclusive, message.sid)
+      return w.slice(this.data, index + w.unit * exclusive)
     }
+
+    const data = await this.channel.ctx.database
+      .select('satori.message')
+      .where({
+        ...this.channel._query,
+        sid: {
+          [exclusive ? w.$gt : w.$gte]: message.sid,
+          [w.$lte]: this[w.front][0],
+        },
+      })
+      .orderBy('sid', w.order)
+      .limit(limit)
+      .execute()
+    if (dir === 'before') data.reverse()
+    return data
   }
 
   async extend(dir: Span.Direction, limit: number, result?: Universal.TwoWayList<Universal.Message>) {
     const w = Span.words[dir]
-    result ??= await this.channel.getMessageList(this[w.front][1], dir, limit)
+    if (!result) {
+      result = await this.channel.bot.self.getMessageList(this.channel.channelId, this[w.front][1], dir, limit)
+      console.log('raw:', result.data.length)
+    }
     const data: Message[] = []
-    const { span, temp } = this.channel.collect(result, dir, data)
+    const { span, temp } = this.channel.collect(result, dir, data, dir === 'after' ? -1 : result.data.length)
     if (!span && dir === 'before' && !result[w.next]) this.channel.hasEarliest = true
     if (data.length || span) {
       return this.channel.insert(data, {
@@ -144,9 +155,11 @@ export namespace Span {
       task: 'prevTask',
       temp: 'prevTemp',
       order: 'desc',
+      $lt: '$gt',
+      $gt: '$lt',
       $lte: '$gte',
       $gte: '$lte',
-      inc: -1,
+      unit: -1,
       last: 0,
       slice: <T>(arr: T[], index: number) => arr.slice(0, index + 1),
     },
@@ -159,9 +172,11 @@ export namespace Span {
       task: 'nextTask',
       temp: 'nextTemp',
       order: 'asc',
+      $lt: '$lt',
+      $gt: '$gt',
       $lte: '$lte',
       $gte: '$gte',
-      inc: 1,
+      unit: 1,
       last: -1,
       slice: <T>(arr: T[], index: number) => arr.slice(index),
     },
