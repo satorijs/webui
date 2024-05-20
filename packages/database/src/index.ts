@@ -2,6 +2,7 @@ import {} from 'minato'
 import { Bot, Context, Dict, Schema, Service, Universal } from '@satorijs/core'
 import { SyncChannel } from './channel'
 import { SyncGuild } from './guild'
+import { Login } from './types'
 
 export * from './types'
 
@@ -15,6 +16,10 @@ declare module '@satorijs/core' {
   interface Satori {
     database: SatoriDatabase
   }
+
+  interface Bot {
+    sync: Login['sync']
+  }
 }
 
 class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
@@ -25,27 +30,89 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
 
   stopped = false
 
-  private _botTasks = new WeakMap<Bot, Promise<void>>()
-
   constructor(ctx: Context, public config: SatoriDatabase.Config) {
     super(ctx, 'satori.database', true)
 
     const self = this
 
-    // ctx.accessor('bot.getGuildList', {
-    //   get: () => async function (this: Bot) {
-    //     const data = await ctx.database.get('satori.guild', {
-    //       logins: {
-    //         $some: {
-    //           platform: this.platform,
-    //           'user.id': this.user.id,
-    //         },
-    //       },
-    //     })
-    //     if (data.length) return data
-    //     return data
-    //   },
-    // })
+    ctx.accessor('bot.getGuildList', {
+      get: () => async function (this: Bot) {
+        if (this.sync.guildListAt >= this.sync.onlineAt) {
+          const data = await ctx.database.get('satori.guild', {
+            syncs: {
+              $some: {
+                login: {
+                  platform: this.platform,
+                  'user.id': this.user.id,
+                },
+              },
+            },
+          })
+          return { data }
+        }
+        const data: Universal.Guild[] = []
+        for await (const guild of this.self.getGuildIter()) {
+          data.push(guild)
+        }
+        await ctx.database.set('satori.login', {
+          platform: this.platform,
+          'user.id': this.user.id,
+        }, {
+          sync: {
+            guildListAt: this.timestamp,
+          },
+          guildSyncs: {
+            // ?
+          },
+        })
+        return { data }
+      },
+    })
+
+    ctx.accessor('bot.getChannelList', {
+      get: () => async function (this: Bot, guildId: string) {
+        // FIXME sync maybe undefined
+        const [sync] = await ctx.database.get('satori.guild.sync', {
+          login: {
+            platform: this.platform,
+            'user.id': this.user.id,
+          },
+          guild: {
+            id: guildId,
+          },
+        })
+        if (sync!.channelListAt >= this.sync.onlineAt) {
+          const data = await ctx.database.get('satori.channel', {
+            guild: {
+              id: guildId,
+            },
+            syncs: {
+              $some: {
+                login: {
+                  platform: this.platform,
+                  'user.id': this.user.id,
+                },
+              },
+            },
+          })
+          return { data }
+        }
+        const data: Universal.Channel[] = []
+        for await (const channel of this.self.getChannelIter(guildId)) {
+          data.push(channel)
+        }
+        await ctx.database.set('satori.guild.sync', {
+          login: {
+            platform: this.platform,
+            'user.id': this.user.id,
+          },
+        }, {
+          channelListAt: this.timestamp,
+          // ?
+        })
+        return { data }
+      },
+    })
 
     ctx.accessor('bot.getMessageList', {
       get: () => async function (this: Bot, channelId: string, id: string, dir?: Universal.Direction, limit?: number, order?: Universal.Order) {
@@ -70,6 +137,7 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
       'flag': 'unsigned(1)',
       'deleted': 'boolean',
       'edited': 'boolean',
+      'syncAt': 'unsigned(8)',
     }, {
       primary: 'uid',
       autoInc: true,
@@ -85,6 +153,7 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
       'name': 'char(255)',
       'nick': 'char(255)',
       'avatar': 'char(255)',
+      'syncAt': 'unsigned(8)',
     }, {
       primary: ['id', 'platform'],
     })
@@ -102,6 +171,7 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
       'id': 'char(255)',
       'platform': 'char(255)',
       'name': 'char(255)',
+      'syncAt': 'unsigned(8)',
     }, {
       primary: ['id', 'platform'],
     })
@@ -109,13 +179,37 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
     ctx.model.extend('satori.login', {
       'platform': 'char(255)',
       'user.id': 'char(255)',
-      'guilds': {
-        type: 'manyToMany',
-        table: 'satori.guild',
-        target: 'logins',
-      },
+      'sync.guildListAt': 'unsigned(8)',
     }, {
       primary: ['platform', 'user.id'],
+    })
+
+    ctx.model.extend('satori.guild.sync', {
+      'guild': {
+        type: 'manyToOne',
+        table: 'satori.guild',
+        target: 'syncs',
+      },
+      'login': {
+        type: 'manyToOne',
+        table: 'satori.login',
+        target: 'syncs',
+      },
+      'channelListAt': 'unsigned(8)',
+      'memberListAt': 'unsigned(8)',
+    })
+
+    ctx.model.extend('satori.channel.sync', {
+      'channel': {
+        type: 'manyToOne',
+        table: 'satori.channel',
+        target: 'syncs',
+      },
+      'login': {
+        type: 'manyToOne',
+        table: 'satori.login',
+        target: 'syncs',
+      },
     })
   }
 
@@ -169,31 +263,22 @@ class SatoriDatabase extends Service<SatoriDatabase.Config, Context> {
     if (bot.hidden) return
     if (!await bot.supports('message.list') || !await bot.supports('guild.list')) return
     if (bot.status !== Universal.Status.ONLINE) {
-      this._botTasks.delete(bot)
       for (const channel of Object.values(this._channels)) {
         if (channel.bot !== bot) continue
         channel.hasLatest = false
       }
+      const query = {
+        platform: bot.platform,
+        'user.id': bot.user.id,
+      }
+      const [login] = await this.ctx.database.get('satori.login', query)
+      bot.sync = login?.sync || { onlineAt: Date.now() }
+      await this.ctx.database.upsert('satori.login', [{
+        ...query,
+        sync: bot.sync,
+      }])
       return
     }
-    this._botTasks.has(bot) || this._botTasks.set(bot, (async () => {
-      for await (const guild of bot.getGuildIter()) {
-        const key = bot.platform + '/' + guild.id
-        this._guilds[key] ||= new SyncGuild(bot, guild)
-      }
-    })())
-    // const tasks: Promise<any>[] = []
-    // for await (const guild of bot.getGuildIter()) {
-    //   const key = bot.platform + '/' + guild.id
-    //   this._guilds[key] ||= new SyncGuild(bot, guild)
-    //   tasks.push((async () => {
-    //     for await (const channel of bot.getChannelIter(guild.id)) {
-    //       const key = bot.platform + '/' + guild.id + '/' + channel.id
-    //       this._channels[key] ||= new SyncChannel(this.ctx, bot, guild.id, channel)
-    //     }
-    //   })())
-    // }
-    // await Promise.all(tasks)
   }
 }
 

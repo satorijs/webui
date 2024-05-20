@@ -13,11 +13,6 @@ export enum SyncStatus {
 
 type LocateResult = [Span, MessageLike]
 
-interface CollectResult {
-  temp?: Universal.TwoWayList<Universal.Message>
-  span?: Span
-}
-
 export class SyncChannel {
   public _spans: Span[] = []
   public _query: { platform: string; 'channel.id': string }
@@ -129,7 +124,7 @@ export class SyncChannel {
     return result
   }
 
-  collect(result: Universal.TwoWayList<Universal.Message>, dir: Span.Direction, data: Message[], index: number): CollectResult {
+  collect(result: Universal.TwoWayList<Universal.Message>, dir: Span.Direction, data: Message[], index: number) {
     const w = Span.words[dir]
     for (let i = index + w.unit; i >= 0 && i < result.data.length; i += w.unit) {
       const span = this._spans.find(span => span[w.back][1] === result.data[i].id)
@@ -138,11 +133,10 @@ export class SyncChannel {
         if (data.length) {
           span[w.temp] = { [w.next]: result[w.next], data }
         }
-        return { span }
+        return span
       }
       data[w.push](Message.from(result.data[i], this.bot.platform, undefined, dir, data.at(w.last)?.sid))
     }
-    return { temp: { data: [], [w.next]: result[w.next] } }
   }
 
   private async locate(id?: string, dir: Universal.Direction = 'before', limit?: number): Promise<LocateResult | undefined> {
@@ -186,8 +180,8 @@ export class SyncChannel {
       index = -1
     }
 
-    const { span: prev, temp: prevTemp } = this.collect(result, 'before', data, index)
-    const { span: next, temp: nextTemp } = this.collect(result, 'after', data, index)
+    const prev = this.collect(result, 'before', data, index)
+    const next = this.collect(result, 'after', data, index)
 
     if (data.length || prev && next) {
       span = this.insert(data, { prev, next })
@@ -198,8 +192,6 @@ export class SyncChannel {
       return
     }
 
-    span.prevTemp = prevTemp
-    span.nextTemp = nextTemp
     if (dir === 'before') {
       message = { sid: span.front[0] }
     } else if (dir === 'after') {
@@ -222,7 +214,7 @@ export class SyncChannel {
 
       let result = span[w.temp]
       if (result) {
-        let i = dir === 'before' ? result.data.length - 1 : 0
+        let i = w.start(result.data.length)
         for (; i >= 0 && i < result.data.length; i += w.unit) {
           if (!data.some(item => item.id === result!.data[i].id)) break
         }

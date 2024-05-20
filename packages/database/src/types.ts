@@ -7,7 +7,9 @@ declare module 'minato' {
     'satori.message': Message
     'satori.user': User
     'satori.guild': Guild
+    'satori.guild.sync': GuildSync
     'satori.channel': Channel
+    'satori.channel.sync': ChannelSync
   }
 }
 
@@ -15,24 +17,49 @@ declare module '@satorijs/protocol' {
   interface Message {
     sid?: bigint
   }
+
+  interface Login {
+    sync: LoginSync
+  }
 }
 
 export interface Login extends Universal.Login {
-  guilds: Guild[]
+  guildSyncs: GuildSync[]
+  channelSyncs: ChannelSync[]
+}
+
+interface LoginSync {
+  onlineAt: number
+  guildListAt: number
 }
 
 export interface User extends Universal.User {
   platform: string
   channel_id?: string
+  syncAt?: number
 }
 
 export interface Guild extends Universal.Guild {
   platform: string
-  logins: Login[]
+  syncs: GuildSync[]
+}
+
+export interface GuildSync {
+  guild: Guild
+  login: Login
+  channelListAt: number
+  memberListAt: number
 }
 
 export interface Channel extends Universal.Channel {
   platform: string
+  guild: Guild
+  syncs: ChannelSync[]
+}
+
+export interface ChannelSync {
+  channel: Channel
+  login: Login
 }
 
 export interface Message extends Universal.Message {
@@ -43,6 +70,7 @@ export interface Message extends Universal.Message {
   flag: number
   deleted: boolean
   edited: boolean
+  syncAt?: number
 }
 
 export namespace Message {

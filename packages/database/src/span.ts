@@ -43,9 +43,8 @@ export class Span {
 
   async flush() {
     if (this.type !== Span.Type.LOCAL) throw new Error('expect local span')
-    console.log('flush', !!this.prev, !!this.prevTemp, !!this.next, !!this.nextTemp)
-    if (!this.prev && this.prevTemp) return
-    if (!this.next && this.nextTemp) return
+    console.log('flush', !!this.prevTemp, !!this.nextTemp)
+    if (this.prevTemp || this.nextTemp) return
     await Promise.all([this.prev?.syncTask, this.next?.syncTask])
     if (!this.channel._spans.includes(this)) return
     return this.syncTask ||= this.sync()
@@ -73,7 +72,6 @@ export class Span {
       } else {
         (data.at(0)!.flag as number) |= Message.Flag.BACK
       }
-      console.log(data.at(0), data.at(-1))
       return data
     }, ['sid', 'channel.id', 'platform'])
     this.type = Span.Type.REMOTE
@@ -118,13 +116,12 @@ export class Span {
       console.log('raw:', result.data.length)
     }
     const data: Message[] = []
-    const { span, temp } = this.channel.collect(result, dir, data, dir === 'after' ? -1 : result.data.length)
+    const span = this.channel.collect(result, dir, data, w.start(result.data.length) - w.unit)
     if (!span && dir === 'before' && !result[w.next]) this.channel.hasEarliest = true
     if (data.length || span) {
       return this.channel.insert(data, {
         [w.prev]: this,
         [w.next]: span,
-        [w.temp]: temp,
       })
     }
   }
@@ -162,6 +159,7 @@ export namespace Span {
       unit: -1,
       last: 0,
       slice: <T>(arr: T[], index: number) => arr.slice(0, index + 1),
+      start: (length: number) => length - 1,
     },
     after: {
       prev: 'prev',
@@ -179,6 +177,7 @@ export namespace Span {
       unit: 1,
       last: -1,
       slice: <T>(arr: T[], index: number) => arr.slice(index),
+      start: () => 0,
     },
   } as const
 }
