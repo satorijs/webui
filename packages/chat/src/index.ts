@@ -9,7 +9,7 @@ export interface Data {
 
 export const name = 'chat'
 
-export const inject = ['webui', 'satori.database']
+export const inject = ['webui']
 
 export interface Config {}
 

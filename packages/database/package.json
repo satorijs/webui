@@ -3,7 +3,8 @@
   "description": "Database for Satori protocol",
   "version": "0.1.1",
   "type": "module",
-  "module": "lib/index.js",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "files": [
     "lib"
   ],
@@ -37,11 +38,11 @@
     }
   },
   "devDependencies": {
-    "@satorijs/plugin-server": "^2.5.0",
+    "@satorijs/plugin-server": "^2.6.0",
     "minato": "^3.3.0"
   },
   "peerDependencies": {
-    "@satorijs/core": "^4.0.0",
+    "@satorijs/core": "^4.1.0",
     "minato": "^3.3.0"
   },
   "dependencies": {

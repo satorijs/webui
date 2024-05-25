@@ -73,7 +73,7 @@ export function apply(ctx: Context) {
       if (bot.hidden) continue
       bots[bot.sid] = {
         ...bot.toJSON(),
-        paths: ctx.get('loader')?.paths(bot.ctx.scope),
+        paths: ctx.get('loader')?.locate(),
         error: bot.error?.message,
         messageSent: bot._messageSent.get(),
         messageReceived: bot._messageReceived.get(),
