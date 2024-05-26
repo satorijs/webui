@@ -11,18 +11,21 @@
 <script setup lang="ts">
 
 import { useRpc } from '@cordisjs/client'
+import type { Login } from '@satorijs/protocol'
 import getWidth from 'string-width'
 import type { Data } from '../src'
 
-defineProps<{
+const props = defineProps<{
   src?: string
   name?: string
+  login: Login
 }>()
 
 const data = useRpc<Data>()
 
 function withProxy(url: string) {
-  return (data.value.proxy ? data.value.proxy + '/' : '') + url
+  if (!props.login.proxyUrls.some((proxy) => url.startsWith(proxy))) return url
+  return data.value.serverUrl + '/v1/proxy/' + url
 }
 
 function short(name: string) {

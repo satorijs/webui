@@ -39,14 +39,16 @@ const statusNames: Record<Status, string> = {
   [Status.DISCONNECT]: '正在断开',
 }
 
-defineProps<{
+const props = defineProps<{
   bot: Data.Bot
 }>()
 
 const data = useRpc<Data>()
 
 function withProxy(url: string) {
-  return (data.value.proxy ? data.value.proxy + '/' : '') + url
+  if (!data.value.serverUrl) return url
+  if (!props.bot.proxyUrls.some((proxy) => url.startsWith(proxy))) return url
+  return data.value.serverUrl + '/v1/proxy/' + url
 }
 
 </script>

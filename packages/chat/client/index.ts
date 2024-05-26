@@ -1,9 +1,9 @@
 import { Context, Dict, Service } from '@cordisjs/client'
-import { computed, markRaw, reactive } from 'vue'
+import { computed, markRaw, reactive, Ref } from 'vue'
 import HTTP from '@cordisjs/plugin-http'
 import Satori, { Bot, Universal } from '@satorijs/core'
 import SatoriAdapter from '@satorijs/adapter-satori'
-import {} from '../src'
+import { Data } from '../src'
 import Chat from './index.vue'
 import './icons'
 
@@ -44,7 +44,7 @@ export default class ChatService extends Service {
     return result
   })
 
-  constructor(ctx: Context) {
+  constructor(ctx: Context, data: Ref<Data>) {
     super(ctx, 'chat', true)
     ctx.plugin(HTTP)
     ctx.plugin(Satori)
@@ -72,7 +72,7 @@ export default class ChatService extends Service {
 
     ctx.inject(['satori'], (ctx) => {
       ctx.plugin(SatoriAdapter, {
-        endpoint: new URL('/satori', location.href).href,
+        endpoint: data.value.serverUrl,
       })
 
       ctx.page({

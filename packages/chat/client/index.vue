@@ -30,7 +30,8 @@
           @click="setGuild(guild)"
           @contextmenu.stop="triggerGuild($event, guild)"
         >
-          <avatar :src="guild.avatar" :name="guild.name" class="w-48px h-48px"/>
+          <avatar :src="guild.avatar" :name="guild.name" :login="ctx.bots[guild.assignees[0]]"
+            class="w-48px h-48px"/>
           <div class="flex flex-col flex-1">
             <div>{{ guild.name }}</div>
             <div>{{ guild.id }}</div>
@@ -58,11 +59,11 @@
             <span
               class="left-timestamp text-gray-4 text-xs
               absolute top-0 left-0 h-full w-18
-                inline-flex items-center justify-center"
+              inline-flex items-center justify-center"
             >{{ formatTime(new Date(message?.createdAt!)) }}</span>
           </template>
           <template v-else>
-            <avatar :src="message.user?.avatar" :name="message.user?.name"
+            <avatar :src="message.user?.avatar" :name="message.user?.name" :login="useBot()"
               class="w-10 h-10 absolute mt-1.5"/>
             <div class="header">
               <span class="font-bold lh-relaxed ml-14">{{ message.user?.name }}</span>

@@ -1,7 +1,7 @@
 <template>
   <template v-if="bots?.length">
     <h2 class="k-schema-header">
-      机器人
+      登录号
     </h2>
     <div class="bots-container flex flex-wrap gap-4">
       <bot-preview v-for="(bot, sid) in bots" :key="sid" :bot="bot"/>
@@ -22,7 +22,7 @@ const data = useRpc<Data>()
 
 const bots = computed(() => {
   return Object.values(data.value.bots || {}).filter(bot => {
-    return bot.paths?.includes(ctx.get('manager')!.current.value!.path)
+    return bot.paths?.includes(ctx.get('manager')!.current.value!.id)
   })
 })
 

@@ -1,7 +1,7 @@
 import { Bot, Context, Dict, Schema, Time, Universal } from '@satorijs/core'
 import {} from '@cordisjs/loader'
 import {} from '@cordisjs/plugin-webui'
-import {} from '@cordisjs/plugin-server-proxy'
+import {} from '@satorijs/plugin-server'
 
 declare module '@satorijs/core' {
   interface Bot {
@@ -11,8 +11,8 @@ declare module '@satorijs/core' {
 }
 
 export interface Data {
-  proxy?: string
   bots: Dict<Data.Bot>
+  serverUrl?: string
 }
 
 export namespace Data {
@@ -54,7 +54,10 @@ class TickCounter {
 
 export const name = 'status'
 
-export const inject = ['webui']
+export const inject = {
+  required: ['webui'],
+  optional: ['satori.server'],
+}
 
 export interface Config {}
 
@@ -79,7 +82,7 @@ export function apply(ctx: Context) {
         messageReceived: bot._messageReceived.get(),
       }
     }
-    return { bots, proxy: ctx.get('server.proxy')?.path }
+    return { bots, serverUrl: ctx.get('satori.server')?.url }
   })
 
   const update = ctx.debounce(() => entry.refresh(), 0)

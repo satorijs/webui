@@ -38,7 +38,7 @@
     }
   },
   "devDependencies": {
-    "@satorijs/plugin-server": "^2.6.0",
+    "@satorijs/plugin-server": "^2.6.3",
     "minato": "^3.3.0"
   },
   "peerDependencies": {

@@ -1,15 +1,15 @@
 import { Context, Schema } from '@satorijs/core'
 import {} from '@cordisjs/plugin-webui'
-import {} from '@cordisjs/plugin-server-proxy'
 import {} from '@satorijs/plugin-database'
+import {} from '@satorijs/plugin-server'
 
 export interface Data {
-  proxy?: string
+  serverUrl: string
 }
 
 export const name = 'chat'
 
-export const inject = ['webui']
+export const inject = ['webui', 'satori.server']
 
 export interface Config {}
 
@@ -23,6 +23,6 @@ export function apply(ctx: Context) {
       import.meta.resolve('../dist/style.css'),
     ],
   }, () => ({
-    proxy: ctx.get('server.proxy')?.path,
+    serverUrl: ctx.satori.server.url,
   }))
 }
