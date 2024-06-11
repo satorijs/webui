@@ -1,7 +1,7 @@
 {
   "name": "@satorijs/plugin-status",
   "description": "Show login status for Satori",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "type": "module",
   "main": "lib/index.js",
   "files": [
@@ -40,13 +40,13 @@
     }
   },
   "peerDependencies": {
-    "@cordisjs/plugin-webui": "^0.1.4",
-    "@satorijs/core": "^4.1.0"
+    "@cordisjs/plugin-webui": "^0.1.7",
+    "@satorijs/core": "^4.1.1"
   },
   "devDependencies": {
-    "@cordisjs/client": "^0.1.4",
-    "@cordisjs/plugin-manager": "^0.1.1",
-    "@satorijs/plugin-server": "^2.6.3"
+    "@cordisjs/client": "^0.1.7",
+    "@cordisjs/plugin-manager": "^0.3.0",
+    "@satorijs/plugin-server": "^2.6.5"
   },
   "dependencies": {
     "cosmokit": "^1.6.2"

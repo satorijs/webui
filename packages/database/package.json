@@ -38,12 +38,12 @@
     }
   },
   "devDependencies": {
-    "@satorijs/plugin-server": "^2.6.3",
-    "minato": "^3.3.0"
+    "@satorijs/plugin-server": "^2.6.5",
+    "minato": "^3.4.0"
   },
   "peerDependencies": {
-    "@satorijs/core": "^4.1.0",
-    "minato": "^3.3.0"
+    "@satorijs/core": "^4.1.1",
+    "minato": "^3.4.0"
   },
   "dependencies": {
     "cosmokit": "^1.6.2"

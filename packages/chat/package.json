@@ -1,7 +1,7 @@
 {
   "name": "@satorijs/plugin-chat",
   "description": "Show plugin dependency graph for Cordis",
-  "version": "0.1.1",
+  "version": "0.1.3",
   "type": "module",
   "main": "lib/index.js",
   "files": [
@@ -40,18 +40,18 @@
     }
   },
   "peerDependencies": {
-    "@cordisjs/plugin-webui": "^0.1.4",
-    "@satorijs/core": "^4.1.0",
+    "@cordisjs/plugin-webui": "^0.1.7",
+    "@satorijs/core": "^4.1.1",
     "@satorijs/plugin-database": "^0.1.1"
   },
   "devDependencies": {
-    "@cordisjs/client": "^0.1.4",
-    "@cordisjs/plugin-http": "^0.5.1",
-    "@cordisjs/plugin-webui": "^0.1.4",
+    "@cordisjs/client": "^0.1.7",
+    "@cordisjs/plugin-http": "^0.5.3",
+    "@cordisjs/plugin-webui": "^0.1.7",
     "@satorijs/adapter-satori": "^1.3.0",
-    "@satorijs/core": "^4.1.0",
+    "@satorijs/core": "^4.1.1",
     "@satorijs/plugin-database": "^0.1.1",
-    "@satorijs/plugin-server": "^2.6.3"
+    "@satorijs/plugin-server": "^2.6.5"
   },
   "dependencies": {
     "cosmokit": "^1.6.2",
