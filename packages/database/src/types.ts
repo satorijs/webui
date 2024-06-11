@@ -6,6 +6,7 @@ declare module 'minato' {
     'satori.login': Login
     'satori.message': Message
     'satori.user': User
+    'satori.member': GuildMember
     'satori.guild': Guild
     'satori.guild.sync': GuildSync
     'satori.channel': Channel
@@ -36,6 +37,12 @@ interface LoginSync {
 export interface User extends Universal.User {
   platform: string
   channel_id?: string
+  syncAt?: number
+}
+
+export interface GuildMember extends Universal.GuildMember {
+  guild: Guild
+  user: User
   syncAt?: number
 }
 
@@ -71,6 +78,10 @@ export interface Message extends Universal.Message {
   deleted: boolean
   edited: boolean
   syncAt?: number
+  user: User
+  member: GuildMember
+  channel: Channel
+  guild: Guild
 }
 
 export namespace Message {
