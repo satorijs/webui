@@ -1,10 +1,10 @@
 import { Bot, pick, Universal } from '@satorijs/core'
-import { Channel, Guild, Login } from './types'
+import { Channel, Guild, LoginSync } from './types'
 import { SyncChannel } from './channel'
 import SatoriDatabase from '.'
 
 interface CachedBot extends Bot {
-  sync: Login['sync']
+  sync: LoginSync
 }
 
 class CachedBot {
@@ -33,13 +33,16 @@ class CachedBot {
     }
     const data: Partial<Guild>[] = []
     for await (const guild of self.getGuildIter()) {
-      data.push({ platform: this.platform, ...pick(guild, ['id', 'name', 'avatar']) })
+      data.push(pick(guild, ['id', 'name', 'avatar']))
     }
     await this.sd.ctx.database.set('satori.login', this._query, {
       sync: {
         guildListAt: Date.now(),
       },
-      guildSyncs: data.map((guild) => ({ guild })) as any,
+      guildSyncs: data.map((guild) => ({ guild: { $create: {
+        platform: this.platform,
+        ...guild,
+      } } })) as any,
     })
     return { data }
   }
@@ -58,7 +61,7 @@ class CachedBot {
         id: guildId,
       },
     })
-    if (sync!.channelListAt >= this.sync.onlineAt) {
+    if (sync?.channelListAt >= this.sync.onlineAt) {
       const data = await this.sd.ctx.database.get('satori.channel', {
         guild: { id: guildId },
         syncs: {
@@ -71,16 +74,20 @@ class CachedBot {
     }
     const data: Partial<Channel>[] = []
     for await (const channel of self.getChannelIter(guildId)) {
-      data.push({ platform: this.platform, ...pick(channel, ['id', 'name', 'type']) })
+      data.push(pick(channel, ['id', 'name', 'type', 'parentId', 'position']))
     }
     await this.sd.ctx.database.set('satori.login', this._query, {
       guildSyncs: {
         $create: {
-          guild: { id: guildId },
+          guild: { id: guildId, platform: this.platform },
           channelListAt: Date.now(),
         },
       },
-      channelSyncs: data.map((channel) => ({ channel })) as any,
+      channelSyncs: data.map((channel) => ({ channel: { $create: {
+        platform: this.platform,
+        guild: { id: guildId },
+        ...channel,
+      } } })) as any,
     })
     return { data }
   }
@@ -102,11 +109,15 @@ class CachedBot {
       if (channel.bot.sid !== this.sid) continue
       channel.hasLatest = false
     }
+    const update: Partial<LoginSync> = {
+      onlineAt: Date.now(),
+    }
     const [login] = await this.ctx.database.get('satori.login', this._query)
-    this.sync = login?.sync || { onlineAt: Date.now() }
+    this.sync = login?.sync || {}
+    Object.assign(this.sync, update)
     await this.ctx.database.upsert('satori.login', [{
       ...this._query,
-      sync: this.sync,
+      sync: update,
     }])
   }
 }

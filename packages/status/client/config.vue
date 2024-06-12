@@ -22,7 +22,7 @@ const data = useRpc<Data>()
 
 const bots = computed(() => {
   return Object.values(data.value.bots || {}).filter(bot => {
-    return bot.paths?.includes(ctx.get('manager')!.current.value!.id)
+    return bot.paths?.includes(ctx.get('manager')!.currentEntry!.id)
   })
 })
 

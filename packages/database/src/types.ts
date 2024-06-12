@@ -18,18 +18,15 @@ declare module '@satorijs/protocol' {
   interface Message {
     sid?: bigint
   }
-
-  interface Login {
-    sync: LoginSync
-  }
 }
 
 export interface Login extends Universal.Login {
+  sync: LoginSync
   guildSyncs: GuildSync[]
   channelSyncs: ChannelSync[]
 }
 
-interface LoginSync {
+export interface LoginSync {
   onlineAt: number
   guildListAt: number
 }

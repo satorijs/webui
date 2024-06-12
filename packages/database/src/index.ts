@@ -57,6 +57,14 @@ class SatoriDatabase extends Service<SatoriDatabase.Config> {
       'id': 'char(255)',
       'platform': 'char(255)',
       'name': 'char(255)',
+      'type': 'integer',
+      'parentId': 'char(255)',
+      'position': 'integer',
+      'guild': {
+        type: 'manyToOne',
+        table: 'satori.guild',
+        target: 'channels',
+      },
     }, {
       primary: ['id', 'platform'],
     })
