@@ -13,10 +13,12 @@ declare module '@cordisjs/client' {
 export default (ctx: Context) => {
   ctx.plugin(Bots)
 
-  ctx.slot({
-    type: 'plugin-details',
-    component: Config,
-    order: -500,
+  ctx.inject(['manager'], (ctx) => {
+    ctx.slot({
+      type: 'plugin-details',
+      component: Config,
+      order: -500,
+    })
   })
 
   ctx.settings({
